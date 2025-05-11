@@ -1,11 +1,21 @@
-# config.py - 설정 및 상수 정의
-# 대시보드 설정 및 파라미터를 한 곳에서 관리
+# config.py - 데이터 분석 대시보드 설정 및 상수 정의
+
+# 오늘의집 브랜드 색상
+BRAND_COLORS = {
+    'primary': '#3DBFAD',  # 민트색 (기본)
+    'secondary': '#50E3C2', # 밝은 민트
+    'tertiary': '#2C8D80',  # 진한 민트
+    'accent': '#FF7E36',    # 오렌지 (강조색)
+    'background': '#F7F8FA', # 배경
+    'text': '#2F3438'       # 텍스트
+}
 
 # 시각화 색상 테마
 COLORSCALES = {
     'correlation': 'RdBu_r',
     'distribution': 'Viridis',
-    'categorical': 'Set2'
+    'categorical': ['#3DBFAD', '#50E3C2', '#2C8D80', '#FF7E36', '#FFA37B', '#FFD0BC'],
+    'sequential': 'Mint'
 }
 
 # 분석 파라미터
@@ -16,7 +26,7 @@ ANALYSIS_PARAMS = {
     },
     'clustering': {
         'max_clusters': 10,
-        'default_clusters': 3
+        'default_clusters': 4
     },
     'outlier_threshold': 1.5  # IQR 방식의 이상치 감지 임계값
 }
@@ -34,4 +44,81 @@ INSIGHT_THRESHOLDS = {
     'high_missing': 5.0,  # 결측치 백분율
     'high_skew': 1.0,     # 왜도 절대값
     'high_outliers': 5.0  # 이상치 백분율
+}
+
+# 오늘의집 제품 카테고리
+PRODUCT_CATEGORIES = [
+    '가구',
+    '패브릭',
+    '주방용품',
+    '가전',
+    '수납/정리',
+    '조명',
+    '인테리어소품',
+    '생활용품',
+    '반려동물',
+    'DIY/공구',
+    '실내식물',
+    '가구부속품',
+    '서랍/수납장',
+    '침구',
+    '커튼/블라인드'
+]
+
+# 오늘의집 비즈니스 KPI 설정
+BUSINESS_KPIS = {
+    'revenue': {
+        'name': '매출액',
+        'unit': '원',
+        'format': '{:,.0f}',
+        'target_increase': 0.1  # 목표 증가율 (10%)
+    },
+    'conversion_rate': {
+        'name': '전환율',
+        'unit': '%',
+        'format': '{:.2f}',
+        'target_value': 3.0     # 목표값 (3%)
+    },
+    'average_order_value': {
+        'name': '객단가',
+        'unit': '원',
+        'format': '{:,.0f}',
+        'target_value': 50000   # 목표값 (5만원)
+    },
+    'retention_rate': {
+        'name': '재구매율',
+        'unit': '%',
+        'format': '{:.1f}',
+        'target_value': 30.0    # 목표값 (30%)
+    },
+    'monthly_active_users': {
+        'name': 'MAU',
+        'unit': '명',
+        'format': '{:,.0f}',
+        'target_increase': 0.05  # 목표 증가율 (5%)
+    }
+}
+
+# 오늘의집 사용자 세그먼트 정의
+USER_SEGMENTS = {
+    'loyal_customers': {
+        'name': '충성 고객',
+        'description': '6개월 내 3회 이상 구매한 고객'
+    },
+    'high_value_customers': {
+        'name': '고가치 고객',
+        'description': '평균 주문금액 상위 20% 고객'
+    },
+    'new_customers': {
+        'name': '신규 고객',
+        'description': '최근 30일 내 첫 구매 고객'
+    },
+    'at_risk_customers': {
+        'name': '이탈 위험 고객',
+        'description': '90일 이상 비활성 고객'
+    },
+    'browsers': {
+        'name': '브라우저',
+        'description': '방문만 하고 구매하지 않는 고객'
+    }
 }
