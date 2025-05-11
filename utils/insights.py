@@ -1,8 +1,290 @@
-# utils/insights.py - 오늘의집 인사이트 생성 관련 함수
+# utils/insights.py - 인사이트 생성 기능 강화
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+import matplotlib.pyplot as plt
+from sklearn.cluster import KMeans
 from config import INSIGHT_THRESHOLDS, PRODUCT_CATEGORIES, BUSINESS_KPIS, USER_SEGMENTS
+
+def generate_data_quality_insights(df):
+    """데이터 품질에 관한 인사이트를 생성합니다."""
+    insights = []
+    
+    # 결측치 분석
+    missing_percentage = df.isnull().mean() * 100
+    high_missing = missing_percentage[missing_percentage > INSIGHT_THRESHOLDS['high_missing']].index.tolist()
+    
+    if high_missing:
+        insights.append(f"⚠️ 다음 변수들은 결측치 비율이 {INSIGHT_THRESHOLDS['high_missing']}% 이상입니다: {', '.join(high_missing)}")
+    
+    # 중복 데이터 분석
+    duplicate_count = df.duplicated().sum()
+    if duplicate_count > 0:
+        duplicate_pct = duplicate_count / len(df) * 100
+        if duplicate_pct > 5:
+            insights.append(f"⚠️ 데이터에 {duplicate_count}개({duplicate_pct:.1f}%)의 중복 행이 있습니다. 데이터 정제가 필요할 수 있습니다.")
+    
+    # 불균형 데이터 확인
+    categorical_cols = df.select_dtypes(include=['object', 'category', 'bool']).columns
+    for col in categorical_cols:
+        value_counts = df[col].value_counts(normalize=True)
+        if len(value_counts) > 1 and value_counts.iloc[0] > 0.9:
+            insights.append(f"⚠️ '{col}' 변수는 '{value_counts.index[0]}' 값이 {value_counts.iloc[0]*100:.1f}%를 차지하는 매우 불균형한 분포를 보입니다.")
+    
+    # 이상치 분석
+    numeric_cols = df.select_dtypes(include=['number']).columns
+    for col in numeric_cols:
+        if df[col].count() > 10:  # 최소 10개의 유효 데이터가 있는 경우만
+            Q1 = df[col].quantile(0.25)
+            Q3 = df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            outlier_count = ((df[col] < (Q1 - 1.5 * IQR)) | (df[col] > (Q3 + 1.5 * IQR))).sum()
+            outlier_pct = outlier_count / df[col].count() * 100
+            
+            if outlier_pct > INSIGHT_THRESHOLDS['high_outliers']:
+                insights.append(f"⚠️ '{col}' 변수에 이상치가 {outlier_pct:.1f}% 있습니다. 데이터 검토가 필요할 수 있습니다.")
+    
+    return insights
+
+def generate_advanced_insights(df):
+    """고급 데이터 분석 인사이트를 생성합니다."""
+    insights = []
+    
+    # 날짜 열 확인
+    date_column = None
+    for col in df.columns:
+        if pd.api.types.is_datetime64_dtype(df[col]):
+            date_column = col
+            break
+    
+    # 군집화 기반 인사이트 (고객 세그먼트)
+    if 'user_id' in df.columns and ('total_price' in df.columns or 'price' in df.columns):
+        try:
+            price_col = 'total_price' if 'total_price' in df.columns else 'price'
+            
+            # 사용자별 구매 통계
+            user_stats = df.groupby('user_id').agg({
+                price_col: ['sum', 'mean', 'count'],
+                'order_id' if 'order_id' in df.columns else 'user_id': 'count'
+            })
+            
+            user_stats.columns = ['total_spent', 'avg_order', 'purchase_count', 'order_count']
+            
+            # 최소 10명 이상의 사용자가 있을 때만 분석
+            if len(user_stats) >= 10:
+                # 결측치 제거
+                user_stats = user_stats.dropna()
+                
+                # 스케일링
+                from sklearn.preprocessing import StandardScaler
+                scaler = StandardScaler()
+                scaled_data = scaler.fit_transform(user_stats)
+                
+                # K-means 군집화 (실루엣 점수로 최적 군집 수 찾기)
+                from sklearn.metrics import silhouette_score
+                
+                best_score = -1
+                best_clusters = 2
+                
+                for n_clusters in range(2, min(6, len(user_stats) // 5)):
+                    kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+                    labels = kmeans.fit_predict(scaled_data)
+                    
+                    if len(set(labels)) > 1:  # 최소 2개 이상의 군집이 있을 때만
+                        score = silhouette_score(scaled_data, labels)
+                        if score > best_score:
+                            best_score = score
+                            best_clusters = n_clusters
+                
+                # 최적 군집으로 다시 학습
+                kmeans = KMeans(n_clusters=best_clusters, random_state=42, n_init=10)
+                user_stats['cluster'] = kmeans.fit_predict(scaled_data)
+                
+                # 군집별 특성 분석
+                cluster_insights = []
+                for cluster in range(best_clusters):
+                    cluster_data = user_stats[user_stats['cluster'] == cluster]
+                    cluster_size = len(cluster_data)
+                    cluster_pct = cluster_size / len(user_stats) * 100
+                    
+                    # 군집 특성 확인
+                    if cluster_data['total_spent'].mean() > user_stats['total_spent'].mean() * 1.5:
+                        if cluster_data['purchase_count'].mean() > user_stats['purchase_count'].mean() * 1.5:
+                            cluster_type = "고가치 충성 고객"
+                        else:
+                            cluster_type = "고액 구매 고객"
+                    elif cluster_data['purchase_count'].mean() > user_stats['purchase_count'].mean() * 1.5:
+                        if cluster_data['avg_order'].mean() < user_stats['avg_order'].mean() * 0.8:
+                            cluster_type = "소액 다빈도 구매 고객"
+                        else:
+                            cluster_type = "충성 고객"
+                    elif cluster_data['avg_order'].mean() < user_stats['avg_order'].mean() * 0.6:
+                        cluster_type = "가격 민감 고객"
+                    else:
+                        cluster_type = f"군집 {cluster+1}"
+                    
+                    insights.append(f"🧠 '{cluster_type}' 세그먼트가 전체 고객의 {cluster_pct:.1f}%를 차지하며, 평균 {cluster_data['total_spent'].mean():,.0f}원을 소비했습니다.")
+        
+        except Exception as e:
+            pass  # 군집화 실패 시 무시
+    
+    # 시계열 패턴 인사이트
+    if date_column and 'total_price' in df.columns:
+        try:
+            # 일별 매출
+            df['date'] = df[date_column].dt.date
+            daily_sales = df.groupby('date')['total_price'].sum().reset_index()
+            
+            if len(daily_sales) >= 7:  # 최소 7일 데이터
+                # 요일별 매출 패턴
+                df['weekday'] = df[date_column].dt.day_name()
+                weekday_sales = df.groupby('weekday')['total_price'].sum()
+                
+                # 요일 순서 정렬
+                weekday_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+                weekday_sales = weekday_sales.reindex(weekday_order)
+                
+                top_weekday = weekday_sales.idxmax()
+                bottom_weekday = weekday_sales.idxmin()
+                
+                # 한글 요일 변환
+                weekday_kr = {
+                    'Monday': '월요일', 'Tuesday': '화요일', 'Wednesday': '수요일', 
+                    'Thursday': '목요일', 'Friday': '금요일', 'Saturday': '토요일', 'Sunday': '일요일'
+                }
+                
+                insights.append(f"📅 매출은 '{weekday_kr.get(top_weekday, top_weekday)}'에 가장 높고, '{weekday_kr.get(bottom_weekday, bottom_weekday)}'에 가장 낮습니다.")
+                
+                # 매출 증감 추세
+                if len(daily_sales) >= 14:  # 최소 2주 데이터
+                    recent_sales = daily_sales.tail(7)['total_price'].sum()
+                    previous_sales = daily_sales.tail(14).head(7)['total_price'].sum()
+                    
+                    if previous_sales > 0:
+                        change_pct = (recent_sales - previous_sales) / previous_sales * 100
+                        
+                        if change_pct > 10:
+                            insights.append(f"📈 최근 7일 매출이 이전 7일 대비 {change_pct:.1f}% 증가했습니다.")
+                        elif change_pct < -10:
+                            insights.append(f"📉 최근 7일 매출이 이전 7일 대비 {abs(change_pct):.1f}% 감소했습니다.")
+        except Exception as e:
+            pass  # 시계열 분석 실패 시 무시
+    
+    return insights
+
+def generate_actionable_recommendations(df):
+    """실행 가능한 비즈니스 추천사항을 생성합니다."""
+    recommendations = []
+    
+    # 필요한 열 확인
+    required_columns = ['user_id', 'total_price', 'category', 'order_date']
+    missing_cols = [col for col in required_columns if col not in df.columns]
+    
+    if missing_cols:
+        return recommendations
+    
+    try:
+        # 현재 시점 설정
+        if 'order_date' in df.columns and pd.api.types.is_datetime64_dtype(df['order_date']):
+            now = df['order_date'].max()
+            
+            # 최근 30일 매출 변화
+            last_30_days = df[df['order_date'] >= now - timedelta(days=30)]
+            previous_30_days = df[(df['order_date'] < now - timedelta(days=30)) & 
+                                (df['order_date'] >= now - timedelta(days=60))]
+            
+            if not last_30_days.empty and not previous_30_days.empty:
+                current_revenue = last_30_days['total_price'].sum()
+                previous_revenue = previous_30_days['total_price'].sum()
+                
+                if previous_revenue > 0:
+                    change_pct = (current_revenue - previous_revenue) / previous_revenue * 100
+                    
+                    if change_pct < -10:
+                        # 카테고리별 변화 분석
+                        current_by_category = last_30_days.groupby('category')['total_price'].sum()
+                        previous_by_category = previous_30_days.groupby('category')['total_price'].sum()
+                        
+                        # 공통 카테고리
+                        common_categories = set(current_by_category.index) & set(previous_by_category.index)
+                        
+                        category_changes = {}
+                        for category in common_categories:
+                            if previous_by_category[category] > 0:
+                                cat_change = (current_by_category[category] - previous_by_category[category]) / previous_by_category[category] * 100
+                                category_changes[category] = cat_change
+                        
+                        # 가장 큰 하락을 보인 카테고리
+                        if category_changes:
+                            declining = sorted(category_changes.items(), key=lambda x: x[1])
+                            worst_category = declining[0][0]
+                            decline_pct = abs(declining[0][1])
+                            
+                            if decline_pct > 20:
+                                recommendations.append(f"💡 '{worst_category}' 카테고리의 매출이 {decline_pct:.1f}% 하락했습니다. 이 카테고리에 대한 프로모션이나 마케팅 캠페인을 고려해보세요.")
+            
+            # 재방문하지 않는 고객 분석
+            if 'user_id' in df.columns:
+                recent_90_days = df[df['order_date'] >= now - timedelta(days=90)]
+                older_customers = df[(df['order_date'] < now - timedelta(days=90)) & 
+                                    (df['order_date'] >= now - timedelta(days=180))]['user_id'].unique()
+                
+                recent_customers = set(recent_90_days['user_id'].unique())
+                older_customers = set(older_customers)
+                
+                churned_customers = older_customers - recent_customers
+                
+                if older_customers:
+                    churn_rate = len(churned_customers) / len(older_customers) * 100
+                    
+                    if churn_rate > 70:
+                        recommendations.append(f"💡 지난 90일간 이전 고객의 {churn_rate:.1f}%가 재방문하지 않았습니다. 고객 이탈 방지를 위한 리텐션 프로그램을 강화하세요.")
+                    
+                    # 이탈 고객의 선호 카테고리 분석
+                    if churned_customers:
+                        churned_df = df[df['user_id'].isin(churned_customers)]
+                        churned_categories = churned_df.groupby('category')['total_price'].sum().sort_values(ascending=False)
+                        
+                        if not churned_categories.empty:
+                            top_churned_category = churned_categories.index[0]
+                            recommendations.append(f"💡 이탈 고객들은 '{top_churned_category}' 카테고리에서 가장 많이 구매했습니다. 이 카테고리 고객들을 위한 특별 프로모션을 고려하세요.")
+        
+        # 카테고리 교차 판매 기회
+        if 'category' in df.columns and 'user_id' in df.columns:
+            # 사용자별 구매 카테고리
+            user_categories = df.groupby('user_id')['category'].unique()
+            
+            # 카테고리 쌍 분석
+            from collections import Counter
+            category_pairs = []
+            
+            for categories in user_categories:
+                if len(categories) >= 2:
+                    for i in range(len(categories)):
+                        for j in range(i+1, len(categories)):
+                            category_pairs.append(tuple(sorted([categories[i], categories[j]])))
+            
+            if category_pairs:
+                pair_counts = Counter(category_pairs)
+                top_pairs = pair_counts.most_common(1)
+                
+                if top_pairs:
+                    cat1, cat2 = top_pairs[0][0]
+                    recommendations.append(f"💡 '{cat1}'와 '{cat2}' 카테고리는 함께 구매되는 경우가 많습니다. 이 카테고리들의 교차 판매 기회를 활용하세요.")
+        
+        # 가격 최적화 기회
+        if 'price' in df.columns and 'category' in df.columns:
+            # 카테고리별 가격 분석
+            category_prices = df.groupby('category')['price'].agg(['mean', 'median', 'std'])
+            
+            for category, stats in category_prices.iterrows():
+                if stats['std'] / stats['mean'] > 0.5:  # 높은 가격 분산
+                    recommendations.append(f"💡 '{category}' 카테고리의 가격대가 매우 다양합니다. 가격 범위 최적화를 고려해보세요.")
+    
+    except Exception as e:
+        pass  # 추천사항 생성 실패 시 무시
+    
+    return recommendations
 
 def generate_basic_insights(df):
     """기본적인 데이터 인사이트를 생성합니다."""

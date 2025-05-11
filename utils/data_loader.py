@@ -5,33 +5,112 @@ from io import StringIO
 import numpy as np
 from datetime import datetime, timedelta
 import json
+import os
+import time
 from config import PRODUCT_CATEGORIES, USER_SEGMENTS
 
-@st.cache_data
+@st.cache_data(ttl=3600, show_spinner=False)
 def load_data(file):
     """파일에서 데이터를 로드하고 기본 전처리를 수행합니다."""
-    if file.name.endswith('.csv'):
-        data = pd.read_csv(file)
-    elif file.name.endswith('.json'):
-        data = pd.read_json(file)
-    elif file.name.endswith('.xlsx') or file.name.endswith('.xls'):
-        data = pd.read_excel(file)
+    try:
+        file_extension = os.path.splitext(file.name)[1].lower()
+        
+        # 파일 크기 확인 (대용량 파일 처리)
+        file_size_mb = file.size / (1024 * 1024)
+        if file_size_mb > 100:  # 100MB 이상인 경우
+            st.warning(f"파일 크기가 {file_size_mb:.1f}MB로 큽니다. 로딩 시간이 오래 걸릴 수 있습니다.")
+        
+        start_time = time.time()
+        
+        if file_extension == '.csv':
+            # CSV 파일 인코딩 자동 감지 시도
+            try:
+                # 처음에는 UTF-8 시도
+                data = pd.read_csv(file, low_memory=False)
+            except UnicodeDecodeError:
+                # UTF-8 실패 시 CP949(한국어 Windows) 시도
+                file.seek(0)  # 파일 포인터 다시 처음으로
+                data = pd.read_csv(file, encoding='cp949', low_memory=False)
+                
+        elif file_extension == '.json':
+            data = pd.read_json(file)
+        elif file_extension in ['.xlsx', '.xls']:
+            # 엑셀 파일의 모든 시트 가져오기
+            xls = pd.ExcelFile(file)
+            sheet_names = xls.sheet_names
+            
+            if len(sheet_names) > 1:
+                selected_sheet = st.sidebar.selectbox(
+                    "사용할 시트를 선택하세요:",
+                    options=sheet_names
+                )
+                data = pd.read_excel(file, sheet_name=selected_sheet)
+            else:
+                data = pd.read_excel(file)
+        else:
+            st.error(f"지원하지 않는 파일 형식입니다: {file_extension}")
+            return None
+        
+        # 데이터 로딩 시간 기록
+        loading_time = time.time() - start_time
+        st.success(f"데이터 로딩 완료! ({loading_time:.2f}초)")
+        
+        # 자동 전처리
+        data = preprocess_data(data)
+        
+        return data
+    
+    except Exception as e:
+        st.error(f"데이터 로딩 중 오류 발생: {str(e)}")
+        return None
+
+def preprocess_data(data):
+    """데이터를 자동으로 전처리합니다."""
+    # 열 이름 공백 제거 및 소문자 변환
+    data.columns = [col.strip().lower().replace(' ', '_') for col in data.columns]
     
     # 날짜 형식 자동 변환
     for col in data.columns:
         if data[col].dtype == 'object':
             # 날짜 형식 변환 시도
-            try:
-                data[col] = pd.to_datetime(data[col])
-            except:
-                pass
-            
-            # 금액 문자열 변환 시도 (예: '₩50,000' -> 50000)
-            if col.lower().find('price') >= 0 or col.lower().find('amount') >= 0 or '금액' in col:
+            if any(date_keyword in col.lower() for date_keyword in ['date', 'time', '날짜', '일자', '시간']):
                 try:
-                    data[col] = data[col].replace('[\₩,]', '', regex=True).astype(float)
+                    data[col] = pd.to_datetime(data[col], errors='coerce')
                 except:
                     pass
+            
+            # 금액 문자열 변환 시도
+            if any(price_keyword in col.lower() for price_keyword in ['price', 'amount', 'cost', 'revenue', '금액', '가격']):
+                try:
+                    # 통화 기호, 쉼표 등 제거
+                    data[col] = data[col].astype(str).str.replace(r'[₩,\$,￦,¥,€,£,\s]', '', regex=True)
+                    data[col] = pd.to_numeric(data[col], errors='coerce')
+                except:
+                    pass
+
+    # 불필요한 열 식별 (모든 값이 동일하거나 거의 모든 값이 NA인 경우)
+    redundant_cols = []
+    for col in data.columns:
+        # 모든 값이 동일한 경우
+        if data[col].nunique() == 1:
+            redundant_cols.append(col)
+        # 90% 이상이 NA인 경우
+        elif data[col].isna().mean() > 0.9:
+            redundant_cols.append(col)
+    
+    # 불필요한 열 목록 사용자에게 표시
+    if redundant_cols:
+        with st.sidebar.expander("불필요한 열 감지됨", expanded=False):
+            st.write("다음 열은 분석 가치가 낮을 수 있습니다:")
+            for col in redundant_cols:
+                if data[col].nunique() == 1:
+                    st.write(f"- {col}: 모든 값이 '{data[col].iloc[0]}'로 동일함")
+                else:
+                    st.write(f"- {col}: {data[col].isna().mean()*100:.1f}%가 결측치")
+                    
+            if st.button("불필요한 열 제거"):
+                data = data.drop(columns=redundant_cols)
+                st.success(f"{len(redundant_cols)}개 열이 제거되었습니다.")
     
     return data
 
