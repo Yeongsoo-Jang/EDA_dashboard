@@ -321,8 +321,8 @@ def generate_basic_insights(df):
     
     return insights
 
-def generate_today_house_insights(df):
-    """오늘의집 데이터에 특화된 인사이트를 생성합니다."""
+def generate_business_insights(df):
+    """비즈니스 데이터에 특화된 인사이트를 생성합니다."""
     insights = generate_basic_insights(df)
     
     # 필수 열이 있는지 확인

@@ -10,10 +10,7 @@ from utils.insights import generate_today_house_insights, generate_kpi_insights,
 from utils.data_processor import get_data_quality_report
 from config import BRAND_COLORS, BUSINESS_KPIS
 
-def show_welcome():
-    """시작 화면을 표시합니다."""
-    st.title("📊 오늘의집 데이터 분석 대시보드")
-    
+def show_welcome():    
     # 브랜드 색상 적용
     st.markdown(f"""
     <style>
@@ -42,9 +39,9 @@ def show_welcome():
     
     with col1:
         st.markdown("""
-        ### 오늘의집 데이터 분석 대시보드에 오신 것을 환영합니다!
+        ### 데이터 분석 대시보드에 오신 것을 환영합니다!
         
-        이 대시보드는 오늘의집 비즈니스 데이터를 다양한 각도에서 분석하여
+        이 대시보드는 비즈니스 데이터를 다양한 각도에서 분석하여
         실용적인 인사이트와 의사결정 지원을 제공합니다.
         
         **주요 기능:**
@@ -66,7 +63,7 @@ def show_welcome():
         <div style="display: flex; justify-content: center; margin: 2rem 0;">
             <div style="background-color: {BRAND_COLORS['primary']}; color: white; 
                     padding: 1.5rem; border-radius: 10px; text-align: center; width: 100%;">
-                <div style="font-size: 2rem; font-weight: bold; margin-bottom: 0.5rem;">오늘의집</div>
+                <div style="font-size: 2rem; font-weight: bold; margin-bottom: 0.5rem;">EDA</div>
                 <div style="font-size: 1.2rem;">데이터 분석 대시보드</div>
             </div>
         </div>
@@ -90,8 +87,8 @@ def show_welcome():
         st.markdown("""
         <div style="background-color: white; border-radius: 10px; padding: 1rem; height: 200px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
             <h4 style="color: #2F3438;">📊 판매 데이터</h4>
-            <p>오늘의집 판매 및 주문 데이터 분석용 샘플</p>
-            <p style="font-size: 0.8rem; color: gray;">2,000+ 주문, 500+ 사용자</p>
+            <p style="font-size: 0.9rem; color: #333333;">판매 및 주문 데이터 분석용 샘플</p>
+            <p style="font-size: 0.8rem; color: #666666;">2,000+ 주문, 500+ 사용자</p>
         </div>
         """, unsafe_allow_html=True)
         if st.button("판매 데이터 로드", key="sales_data"):
@@ -225,7 +222,7 @@ def create_kpi_card(title, value, previous_value=None, format_str="{:,.0f}", uni
         if icon is None:
             icon = "📊"
     
-    # 향상된 카드 HTML
+    # 향상된 카드 HTML - 모든 텍스트에 명시적 색상 지정으로 가독성 보장
     card_html = f"""
     <div style="background-color: white; border-radius: 10px; padding: 1rem; box-shadow: 0 2px 5px rgba(0,0,0,0.1); height: 100%;">
         <div style="display: flex; align-items: center; margin-bottom: 8px;">
@@ -910,12 +907,12 @@ def show(df, filename):
         with cols[i % 3]:
             st.markdown(f"""
             <div style="background-color: white; border-radius: 10px; padding: 1rem; 
-                       box-shadow: 0 2px 5px rgba(0,0,0,0.1); height: 180px; margin-bottom: 1rem;">
+                    box-shadow: 0 2px 5px rgba(0,0,0,0.1); height: 180px; margin-bottom: 1rem;">
                 <h4 style="color: {BRAND_COLORS['text']}; margin-top: 0;">{analysis['title']}</h4>
                 <p style="color: {BRAND_COLORS['text']}; font-size: 0.9rem; height: 60px;">{analysis['description']}</p>
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div style="color: gray; font-size: 0.8rem;">페이지: {analysis['page']}</div>
-                    <div style="color: gray; font-size: 0.8rem;">변수: {analysis['variables']}</div>
+                    <div style="color: #555555; font-size: 0.8rem;">페이지: {analysis['page']}</div>
+                    <div style="color: #555555; font-size: 0.8rem;">변수: {analysis['variables']}</div>
                 </div>
             </div>
             """, unsafe_allow_html=True)

@@ -395,7 +395,7 @@ def generate_sample_user_data(orders_df):
     return users_df
 
 def generate_sample_data():
-    """오늘의집 전체 샘플 데이터셋을 생성합니다."""
+    """샘플 데이터셋을 생성합니다."""
     # 제품 데이터 생성
     products_df = generate_sample_product_data()
     
@@ -425,6 +425,6 @@ def generate_sample_data():
     # CSV 문자열로 변환
     csv_str = merged_df.to_csv(index=False)
     sample_file = StringIO(csv_str)
-    sample_file.name = "오늘의집_통합데이터.csv"
+    sample_file.name = "통합데이터_샘플.csv"
     
     return sample_file

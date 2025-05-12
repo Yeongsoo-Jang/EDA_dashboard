@@ -7,7 +7,7 @@ from config import BRAND_COLORS
 
 # 페이지 설정
 st.set_page_config(
-    page_title="오늘의집 데이터 분석 대시보드",
+    page_title="EDA 데이터 분석 대시보드",
     page_icon="📊",
     layout="wide"
 )
