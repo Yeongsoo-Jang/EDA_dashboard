@@ -567,9 +567,35 @@ class DataMerger:
                     st.session_state.active_dataframes[result_name] = merged_df
                     st.info(f"'{result_name}'이(가) 활성 데이터셋에 추가되었습니다.")
                 
+                # 대시보드 분석에 적용 옵션
+                st.markdown("### 대시보드 분석에 적용")
+                if st.checkbox("병합 결과로 대시보드 분석하기", value=False, key="visual_analyze_dashboard"):
+                    # 현재 활성 데이터로 설정
+                    st.session_state.data = merged_df
+                    st.session_state.filename = result_name
+                    
+                    # 페이지 선택 옵션
+                    analysis_page = st.selectbox(
+                        "분석 페이지 선택:",
+                        ["홈", "기초 통계", "변수 분석", "고급 EDA", "머신러닝 모델링"],
+                        format_func=lambda x: {
+                            "홈": "🏠 홈 - 데이터 개요 및 주요 KPI",
+                            "기초 통계": "📊 기초 통계 - 기본 통계량 및 분포",
+                            "변수 분석": "📈 변수 분석 - 상세 변수 분석",
+                            "고급 EDA": "🧠 고급 EDA - 고급 탐색적 데이터 분석",
+                            "머신러닝 모델링": "🤖 머신러닝 모델링 - 예측 모델 구축"
+                        }[x]
+                    )
+                    
+                    if st.button("선택한 페이지로 이동", key="visual_go_to_analysis"):
+                        st.session_state["current_page"] = analysis_page
+                        st.session_state["show_merger"] = False
+                        st.rerun()
+                
             except Exception as e:
                 st.error(f"병합 중 오류 발생: {str(e)}")
                 st.session_state.last_error = str(e)
+                st.exception(e)
         
         # 고급 옵션 (선택적)
         with st.expander("고급 병합 옵션", expanded=False):
@@ -677,6 +703,31 @@ class DataMerger:
                 if st.checkbox("쿼리 결과를 활성 데이터셋으로 추가", value=True, key="sql_add_active"):
                     st.session_state.active_dataframes[result_name] = result_df
                     st.info(f"'{result_name}'이(가) 활성 데이터셋에 추가되었습니다.")
+                
+                # 대시보드 분석에 적용 옵션
+                st.markdown("### 대시보드 분석에 적용")
+                if st.checkbox("쿼리 결과로 대시보드 분석하기", value=False, key="sql_analyze_dashboard"):
+                    # 현재 활성 데이터로 설정
+                    st.session_state.data = result_df
+                    st.session_state.filename = result_name
+                    
+                    # 페이지 선택 옵션
+                    analysis_page = st.selectbox(
+                        "분석 페이지 선택:",
+                        ["홈", "기초 통계", "변수 분석", "고급 EDA", "머신러닝 모델링"],
+                        format_func=lambda x: {
+                            "홈": "🏠 홈 - 데이터 개요 및 주요 KPI",
+                            "기초 통계": "📊 기초 통계 - 기본 통계량 및 분포",
+                            "변수 분석": "📈 변수 분석 - 상세 변수 분석",
+                            "고급 EDA": "🧠 고급 EDA - 고급 탐색적 데이터 분석",
+                            "머신러닝 모델링": "🤖 머신러닝 모델링 - 예측 모델 구축"
+                        }[x]
+                    )
+                    
+                    if st.button("선택한 페이지로 이동", key="sql_go_to_analysis"):
+                        st.session_state["current_page"] = analysis_page
+                        st.session_state["show_merger"] = False
+                        st.rerun()
                 
             except Exception as e:
                 st.error(f"쿼리 실행 중 오류 발생: {str(e)}")
@@ -914,6 +965,31 @@ else:
                 if st.checkbox("실행 결과를 활성 데이터셋으로 추가", value=True, key="python_add_active"):
                     st.session_state.active_dataframes[result_name] = result_df
                     st.info(f"'{result_name}'이(가) 활성 데이터셋에 추가되었습니다.")
+                
+                # 대시보드 분석에 적용 옵션
+                st.markdown("### 대시보드 분석에 적용")
+                if st.checkbox("Python 실행 결과로 대시보드 분석하기", value=False, key="python_analyze_dashboard"):
+                    # 현재 활성 데이터로 설정
+                    st.session_state.data = result_df
+                    st.session_state.filename = result_name
+                    
+                    # 페이지 선택 옵션
+                    analysis_page = st.selectbox(
+                        "분석 페이지 선택:",
+                        ["홈", "기초 통계", "변수 분석", "고급 EDA", "머신러닝 모델링"],
+                        format_func=lambda x: {
+                            "홈": "🏠 홈 - 데이터 개요 및 주요 KPI",
+                            "기초 통계": "📊 기초 통계 - 기본 통계량 및 분포",
+                            "변수 분석": "📈 변수 분석 - 상세 변수 분석",
+                            "고급 EDA": "🧠 고급 EDA - 고급 탐색적 데이터 분석",
+                            "머신러닝 모델링": "🤖 머신러닝 모델링 - 예측 모델 구축"
+                        }[x]
+                    )
+                    
+                    if st.button("선택한 페이지로 이동", key="python_go_to_analysis"):
+                        st.session_state["current_page"] = analysis_page
+                        st.session_state["show_merger"] = False
+                        st.rerun()
             
             except Exception as e:
                 st.error(f"코드 실행 중 오류 발생: {str(e)}")
@@ -1006,6 +1082,32 @@ else:
                 st.subheader("결과 미리보기")
                 st.dataframe(result_df.head(10))
                 
+                # 대시보드 분석에 적용 옵션 
+                if st.button("이 결과로 대시보드 분석하기", key=f"analyze_{selected_result}"):
+                    # 현재 활성 데이터로 설정
+                    st.session_state.data = result_df
+                    st.session_state.filename = selected_result
+                    
+                    # 페이지 선택 옵션
+                    st.success(f"'{selected_result}' 데이터가 대시보드 분석에 적용되었습니다.")
+                    
+                    analysis_page = st.selectbox(
+                        "분석 페이지 선택:",
+                        ["홈", "기초 통계", "변수 분석", "고급 EDA", "머신러닝 모델링"],
+                        format_func=lambda x: {
+                            "홈": "🏠 홈 - 데이터 개요 및 주요 KPI",
+                            "기초 통계": "📊 기초 통계 - 기본 통계량 및 분포",
+                            "변수 분석": "📈 변수 분석 - 상세 변수 분석",
+                            "고급 EDA": "🧠 고급 EDA - 고급 탐색적 데이터 분석",
+                            "머신러닝 모델링": "🤖 머신러닝 모델링 - 예측 모델 구축"
+                        }[x]
+                    )
+                    
+                    if st.button("선택한 페이지로 이동", key=f"go_to_{selected_result}"):
+                        st.session_state["current_page"] = analysis_page
+                        st.session_state["show_merger"] = False
+                        st.rerun()
+                
                 # 결과 내보내기 옵션
                 export_format = st.radio(
                     "내보내기 형식:",
@@ -1088,11 +1190,349 @@ else:
             else:
                 st.info("저장된 병합 작업이 없습니다.")
 
-# 메인 함수
+# 간소화된 병합 인터페이스 함수
+def show_simplified_merger():
+    """간소화된 데이터 병합 UI"""
+    st.title("🔄 데이터 병합")
+    
+    if len(st.session_state.active_dataframes) < 2:
+        st.info("데이터 병합을 위해 최소 2개 이상의 파일을 업로드하세요.")
+        return
+    
+    # 진행 상태 표시
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    # 단계별 표시 함수
+    def update_progress(step, total=4):
+        progress_bar.progress(step / total)
+        steps = ["데이터셋 선택", "조인 키 선택", "병합 유형 선택", "결과 설정"]
+        status_text.info(f"단계 {step}/{total}: {steps[step-1]}")
+    
+    # 1단계: 데이터셋 선택
+    update_progress(1)
+    st.subheader("1️⃣ 병합할 데이터셋 선택")
+    
+    # 데이터셋 선택 UI
+    col1, col2 = st.columns(2)
+    with col1:
+        left_df = st.selectbox(
+            "첫 번째 데이터셋:",
+            options=list(st.session_state.active_dataframes.keys()),
+            key="merge_left_df"
+        )
+        
+        # 선택된 데이터셋 미리보기
+        st.dataframe(st.session_state.active_dataframes[left_df].head(3), use_container_width=True)
+        
+    with col2:
+        # 첫 번째와 다른 데이터셋만 표시
+        right_df = st.selectbox(
+            "두 번째 데이터셋:",
+            options=[df for df in st.session_state.active_dataframes.keys() if df != left_df],
+            key="merge_right_df"
+        )
+        
+        # 선택된 데이터셋 미리보기
+        if right_df:
+            st.dataframe(st.session_state.active_dataframes[right_df].head(3), use_container_width=True)
+    
+    # 다음 단계 버튼
+    next_step1 = st.button("다음 단계 →", key="next_to_step2")
+    
+    # 2단계: 조인 키 선택
+    if next_step1 or "merge_step" in st.session_state and st.session_state["merge_step"] >= 2:
+        st.session_state["merge_step"] = 2
+        update_progress(2)
+        st.subheader("2️⃣ 조인 키 선택")
+        
+        # 공통 키 자동 감지
+        common_columns = list(set(st.session_state.active_dataframes[left_df].columns) & 
+                             set(st.session_state.active_dataframes[right_df].columns))
+        
+        if common_columns:
+            st.success(f"{len(common_columns)}개의 공통 열을 찾았습니다!")
+            
+            # ID 또는 키로 보이는 열을 기본값으로 설정
+            default_key_index = 0
+            for i, col in enumerate(common_columns):
+                if col.lower().endswith('_id') or 'id' in col.lower() or 'key' in col.lower():
+                    default_key_index = i
+                    break
+            
+            join_key = st.selectbox(
+                "조인 키로 사용할 열:",
+                options=common_columns,
+                index=default_key_index,
+                key="merge_join_key"
+            )
+            
+            # 조인 키 값 미리보기
+            st.markdown("##### 조인 키 값 미리보기")
+            key_preview = pd.DataFrame({
+                f"{left_df} 키값": st.session_state.active_dataframes[left_df][join_key].head(5),
+                f"{right_df} 키값": st.session_state.active_dataframes[right_df][join_key].head(5)
+            })
+            st.dataframe(key_preview, use_container_width=True)
+            
+            # 세션에 저장
+            st.session_state["merge_keys"] = {"common": True, "key": join_key}
+            
+        else:
+            st.warning("공통 열을 찾을 수 없습니다. 수동으로 키를 지정하세요.")
+            col1, col2 = st.columns(2)
+            with col1:
+                left_key = st.selectbox(
+                    "첫 번째 데이터셋 키:", 
+                    st.session_state.active_dataframes[left_df].columns,
+                    key="merge_left_key"
+                )
+            with col2:
+                right_key = st.selectbox(
+                    "두 번째 데이터셋 키:", 
+                    st.session_state.active_dataframes[right_df].columns,
+                    key="merge_right_key"
+                )
+            
+            # 조인 키 값 미리보기
+            st.markdown("##### 조인 키 값 미리보기")
+            key_preview = pd.DataFrame({
+                f"{left_df} [{left_key}]": st.session_state.active_dataframes[left_df][left_key].head(5),
+                f"{right_df} [{right_key}]": st.session_state.active_dataframes[right_df][right_key].head(5)
+            })
+            st.dataframe(key_preview, use_container_width=True)
+            
+            # 세션에 저장
+            st.session_state["merge_keys"] = {"common": False, "left_key": left_key, "right_key": right_key}
+        
+        # 다음 단계 버튼
+        next_step2 = st.button("다음 단계 →", key="next_to_step3")
+        
+        # 3단계: 병합 유형 선택
+        if next_step2 or "merge_step" in st.session_state and st.session_state["merge_step"] >= 3:
+            st.session_state["merge_step"] = 3
+            update_progress(3)
+            st.subheader("3️⃣ 병합 유형 선택")
+            
+            join_type = st.radio(
+                "병합 유형:",
+                ["inner", "left", "right", "outer"],
+                format_func=lambda x: {
+                    "inner": "Inner Join (교집합) - 양쪽 데이터셋에 모두 있는 데이터만",
+                    "left": "Left Join (왼쪽 기준) - 왼쪽 데이터셋의 모든 행 + 일치하는 오른쪽 데이터",
+                    "right": "Right Join (오른쪽 기준) - 오른쪽 데이터셋의 모든 행 + 일치하는 왼쪽 데이터",
+                    "outer": "Outer Join (합집합) - 양쪽 데이터셋의 모든 행 (일부는 null 값)"
+                }[x],
+                horizontal=False,
+                key="merge_join_type"
+            )
+            
+            # 병합 유형 시각적 설명
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("##### 병합 유형 설명")
+                join_explanations = {
+                    "inner": "두 데이터셋의 교집합 (공통 키가 있는 행만)",
+                    "left": "왼쪽 데이터셋의 모든 행 유지 (일치하지 않는 오른쪽 값은 NaN)",
+                    "right": "오른쪽 데이터셋의 모든 행 유지 (일치하지 않는 왼쪽 값은 NaN)",
+                    "outer": "두 데이터셋의 합집합 (모든 행 포함, 일치하지 않는 값은 NaN)"
+                }
+                st.info(join_explanations[join_type])
+                
+            with col2:
+                # 병합 유형 다이어그램 (간단한 텍스트 기반)
+                diagrams = {
+                    "inner": """
+                    ```
+                      데이터셋 A  ⋂  데이터셋 B
+                        ╭───────╮ ╭───────╮
+                        │       │╳│       │
+                        │   ╭───┼─┼───╮   │
+                        │   │   │ │   │   │
+                        │   ╰───┼─┼───╯   │
+                        │       │╳│       │
+                        ╰───────╯ ╰───────╯
+                    ```
+                    """,
+                    "left": """
+                    ```
+                        ╭───────────────╮
+                        │ 데이터셋 A    │
+                        │     ╭─────────┼───╮
+                        │     │         │   │
+                        │     │         │   │
+                        │     ╰─────────┼───╯
+                        │               │
+                        ╰───────────────╯
+                            데이터셋 B
+                    ```
+                    """,
+                    "right": """
+                    ```
+                            ╭───────────────╮
+                            │ 데이터셋 B    │
+                        ╭───┼─────────╮     │
+                        │   │         │     │
+                        │   │         │     │
+                        ╰───┼─────────╯     │
+                            │               │
+                            ╰───────────────╯
+                        데이터셋 A
+                    ```
+                    """,
+                    "outer": """
+                    ```
+                        ╭───────────────────╮
+                        │     ╭───────╮     │
+                        │     │       │     │
+                        │  A  │   A   │  B  │
+                        │     │   ∩   │     │
+                        │     │   B   │     │
+                        │     │       │     │
+                        │     ╰───────╯     │
+                        ╰───────────────────╯
+                    ```
+                    """
+                }
+                st.markdown(diagrams[join_type])
+            
+            # 다음 단계 버튼 (수정된 부분)
+            if st.button("다음 단계 →", key="next_to_step4"):
+                # 세션 상태에 명시적으로 단계 저장
+                st.session_state["merge_step"] = 4
+                st.rerun()  # 페이지 즉시 리로드
+            
+            # 4단계: 결과 설정
+            if "merge_step" in st.session_state and st.session_state["merge_step"] >= 4:
+                update_progress(4)
+                st.subheader("4️⃣ 병합 결과 설정")
+                
+                # 결과 이름
+                result_name = st.text_input(
+                    "병합 결과 데이터셋 이름:",
+                    value=f"{left_df}_{right_df}_{join_type}",
+                    key="merge_result_name"
+                )
+                
+                # 열 충돌 처리
+                col_conflict = st.radio(
+                    "열 이름 충돌 처리:",
+                    ["접미사 추가", "왼쪽 우선", "오른쪽 우선"],
+                    format_func=lambda x: {
+                        "접미사 추가": "접미사 추가 (_left/_right)",
+                        "왼쪽 우선": "왼쪽 데이터셋 우선",
+                        "오른쪽 우선": "오른쪽 데이터셋 우선"
+                    }[x],
+                    horizontal=True,
+                    key="merge_col_conflict"
+                )
+                
+                suffixes = ('_left', '_right')
+                if col_conflict == "왼쪽 우선":
+                    suffixes = ('', '_right')
+                elif col_conflict == "오른쪽 우선":
+                    suffixes = ('_left', '')
+                
+                # 기타 옵션
+                with st.expander("추가 옵션", expanded=False):
+                    drop_na = st.checkbox("결측값이 있는 행 제거", value=False, key="merge_drop_na")
+                    reset_index = st.checkbox("인덱스 재설정", value=True, key="merge_reset_index")
+                
+                # 병합 실행 버튼
+                if st.button("병합 실행", type="primary", key="run_merge"):
+                    try:
+                        with st.spinner("데이터 병합 중..."):
+                            # 데이터프레임 가져오기
+                            left_data = st.session_state.active_dataframes[left_df]
+                            right_data = st.session_state.active_dataframes[right_df]
+                            
+                            # 공통 키 또는 개별 키 사용
+                            if st.session_state["merge_keys"]["common"]:
+                                join_key = st.session_state["merge_keys"]["key"]
+                                merged_df = pd.merge(
+                                    left_data,
+                                    right_data,
+                                    on=join_key,
+                                    how=join_type,
+                                    suffixes=suffixes
+                                )
+                            else:
+                                left_key = st.session_state["merge_keys"]["left_key"]
+                                right_key = st.session_state["merge_keys"]["right_key"]
+                                merged_df = pd.merge(
+                                    left_data,
+                                    right_data,
+                                    left_on=left_key,
+                                    right_on=right_key,
+                                    how=join_type,
+                                    suffixes=suffixes
+                                )
+                            
+                            # 추가 옵션 적용
+                            if drop_na:
+                                merged_df = merged_df.dropna()
+                            
+                            if reset_index:
+                                merged_df = merged_df.reset_index(drop=True)
+                            
+                            # 결과 저장
+                            st.session_state.merged_results[result_name] = merged_df
+                            st.session_state.active_dataframes[result_name] = merged_df
+                            
+                            # 현재 활성 데이터로 설정 (중요!)
+                            st.session_state.data = merged_df
+                            st.session_state.filename = result_name
+                            
+                            # 결과 미리보기
+                            st.success(f"병합 완료! 결과: {len(merged_df)}행 × {len(merged_df.columns)}열")
+                            
+                            # 결과 미리보기
+                            st.subheader("병합 결과 미리보기")
+                            st.dataframe(merged_df.head(5), use_container_width=True)
+                            
+                            # 안내 메시지
+                            st.info("병합된 데이터가 자동으로 대시보드에 적용되었습니다. 이제 사이드바에서 다양한 분석 페이지를 통해 분석할 수 있습니다.")
+                            
+                            # 분석 페이지로 바로 이동 옵션
+                            st.markdown("### 다음 단계")
+                            analysis_page = st.selectbox(
+                                "병합된 데이터로 분석할 페이지 선택:",
+                                ["홈", "기초 통계", "변수 분석", "고급 EDA", "머신러닝 모델링"],
+                                format_func=lambda x: {
+                                    "홈": "🏠 홈 - 데이터 개요 및 주요 KPI",
+                                    "기초 통계": "📊 기초 통계 - 기본 통계량 및 분포",
+                                    "변수 분석": "📈 변수 분석 - 상세 변수 분석",
+                                    "고급 EDA": "🧠 고급 EDA - 고급 탐색적 데이터 분석",
+                                    "머신러닝 모델링": "🤖 머신러닝 모델링 - 예측 모델 구축"
+                                }[x]
+                            )
+                            
+                            if st.button("선택한 페이지로 이동", key="go_to_analysis"):
+                                st.session_state["current_page"] = analysis_page
+                                st.session_state["show_merger"] = False
+                                st.rerun()
+                        
+                    except Exception as e:
+                        st.error(f"병합 중 오류 발생: {str(e)}")
+                        st.exception(e)
+
+# 메인 함수 - 기존 함수 유지하면서 간소화된 버전도 지원
 def show():
     """데이터 병합 모듈을 표시하는 메인 함수"""
-    merger = DataMerger()
-    merger.show()
+    # 기존의 복잡한 병합 인터페이스를 사용할지, 간소화된 인터페이스를 사용할지 선택 옵션
+    merger_type = st.radio(
+        "병합 인터페이스 선택:",
+        ["간소화된 인터페이스", "고급 인터페이스"],
+        horizontal=True,
+        help="간소화된 인터페이스는 쉽고 직관적인 병합을, 고급 인터페이스는 더 많은 옵션을 제공합니다."
+    )
+    
+    if merger_type == "간소화된 인터페이스":
+        show_simplified_merger()
+    else:
+        # 기존 고급 병합 인터페이스 호출
+        merger = DataMerger()
+        merger.show()
 
 if __name__ == "__main__":
     show()

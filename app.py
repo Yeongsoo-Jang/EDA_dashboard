@@ -106,6 +106,14 @@ if "filename" not in st.session_state:
     st.session_state["filename"] = None
 if "preprocessing_applied" not in st.session_state:
     st.session_state["preprocessing_applied"] = False
+if "active_dataframes" not in st.session_state:
+    st.session_state.active_dataframes = {}
+if "merged_results" not in st.session_state:
+    st.session_state.merged_results = {}
+if "show_merger" not in st.session_state:
+    st.session_state.show_merger = False
+if "current_page" not in st.session_state:
+    st.session_state["current_page"] = "홈"
 
 # 사이드바 - 페이지 네비게이션
 with st.sidebar:
@@ -123,164 +131,131 @@ with st.sidebar:
     """
     st.markdown(logo_html, unsafe_allow_html=True)
     
-    # 파일 업로드 섹션
+    # 통합 파일 업로드 섹션
     st.subheader("📁 데이터 업로드")
-    uploaded_file = st.file_uploader("CSV, JSON 또는 엑셀 파일을 업로드하세요", 
-                                     type=['csv', 'json', 'xlsx', 'xls'],
-                                     help="데이터 분석을 위한 파일을 업로드하세요.")
     
-    # 로딩 상태 표시 개선
-    if uploaded_file is not None:
-        with st.status("데이터 처리 중...", expanded=True) as status:
-            st.write("파일 로드 중...")
-            # load_data now returns a tuple: (DataFrame, redundant_cols_info)
-            actual_df, redundant_info = load_data(uploaded_file)
-            
-            st.session_state['data'] = actual_df # Store the DataFrame part
-            st.session_state['filename'] = uploaded_file.name
-            # Store redundant_info for later use (e.g., UI for removing columns)
-            st.session_state['redundant_cols_info_for_ui'] = redundant_info
-            
-            # 데이터 정보 요약 표시
-            if actual_df is not None:
-                st.write(f"✅ 데이터 로드 완료: {actual_df.shape[0]:,}행 × {actual_df.shape[1]:,}열")
-                memory_usage = actual_df.memory_usage(deep=True).sum() / (1024 * 1024)
-                st.write(f"📊 메모리 사용량: {memory_usage:.2f} MB")
-                
-                # 대용량 데이터 감지 및 경고
-                if actual_df.shape[0] * actual_df.shape[1] > APP_CONFIG["large_data_threshold"]:
-                    st.warning("대용량 데이터가 감지되었습니다. 일부 분석은 시간이 오래 걸릴 수 있습니다.")
-                status.update(label="데이터 로드 완료!", state="complete")
-            else:
-                status.update(label="데이터 로드 실패.", state="error")
-                st.session_state['data'] = None # Ensure data is None if actual_df is None
-                st.session_state['redundant_cols_info_for_ui'] = []
-    else:
-        # 샘플 데이터 옵션
-        # 이 블록은 st.file_uploader를 통해 파일이 업로드되지 않았을 때 실행됩니다.
-        if 'sample_file' in st.session_state and st.session_state.sample_file is not None:
-            # st.session_state.sample_file이 (DataFrame, 파일명) 튜플이라고 가정합니다.
-            # 이 값은 home.py 등에서 generate_sample_data() 호출 후 설정됩니다.
-            with st.status("샘플 데이터 적용 중...") as status:
-                sample_data_tuple = st.session_state.sample_file
-
-                # st.session_state.sample_file이 튜플(DataFrame, 파일명)인지 확인
-                if isinstance(sample_data_tuple, tuple) and \
-                   len(sample_data_tuple) == 2 and \
-                   isinstance(sample_data_tuple[0], pd.DataFrame) and \
-                   isinstance(sample_data_tuple[1], str):
-                    
-                    df_sample, filename_sample = sample_data_tuple
-                    
-                    if df_sample is not None:
-                        st.session_state['data'] = df_sample
-                        st.session_state['filename'] = filename_sample
-                        st.session_state["preprocessing_applied"] = False # 새 데이터 로드시 전처리 플래그 초기화
-                        status.update(label="샘플 데이터 적용 완료!", state="complete")
-                    else:
-                        st.error("샘플 데이터의 DataFrame이 비어있습니다.")
-                        status.update(label="샘플 데이터 적용 실패!", state="error")
-                        st.session_state['data'] = None
-                        st.session_state['filename'] = None
-                else:
-                    st.error("세션의 샘플 데이터 형식이 올바르지 않습니다. (DataFrame, 파일명) 튜플이어야 합니다.")
-                    status.update(label="샘플 데이터 형식 오류!", state="error")
-                    st.session_state['data'] = None
-                    st.session_state['filename'] = None
-        else:
-            st.session_state['data'] = None
-            st.session_state['filename'] = None # filename도 None으로 설정
-
-
-    
-    # 사이드바 - 여러 파일 업로드
-    st.sidebar.subheader("📁 여러 파일 업로드")
-    uploaded_files = st.sidebar.file_uploader(
-        "CSV 파일을 여러 개 업로드하세요", type=['csv'], accept_multiple_files=True
+    upload_type = st.radio(
+        "업로드 유형:",
+        ["단일 파일", "다중 파일"],
+        horizontal=True,
+        help="분석용 단일 파일 또는 병합용 다중 파일을 선택하세요."
     )
-
-    # 업로드된 파일을 데이터프레임으로 읽기
-    if uploaded_files:
-        st.sidebar.write(f"업로드된 파일 수: {len(uploaded_files)}")
-        dataframes = {file.name: pd.read_csv(file) for file in uploaded_files}
-        
-        # 파일 미리보기
-        st.sidebar.subheader("파일 미리보기")
-        selected_file = st.sidebar.selectbox("파일 선택", list(dataframes.keys()))
-        if selected_file:
-            st.sidebar.write(dataframes[selected_file].head())
-
-        # 병합 옵션
-        st.subheader("🛠️ 데이터 병합")
-        merge_method = st.radio("병합 방법 선택", ["SQL 쿼리", "Python 코드"])
-        
-        if merge_method == "SQL 쿼리":
-            st.text_area("SQL 쿼리를 입력하세요 (예: SELECT * FROM df1 JOIN df2 ON df1.id = df2.id)", key="sql_query")
-            if st.button("SQL 실행"):
-                try:
-                    merged_data = ps.sqldf(st.session_state.sql_query, locals())
-                    st.session_state["merged_data"] = merged_data
-                    st.success("SQL 쿼리 실행 완료!")
-                    st.write(merged_data.head())
-                except Exception as e:
-                    st.error(f"SQL 실행 중 오류 발생: {e}")
-        
-        elif merge_method == "Python 코드":
-            st.text_area("Python 코드를 입력하세요 (예: df1.merge(df2, on='id'))", key="python_code")
-            if st.button("Python 코드 실행"):
-                try:
-                    exec(st.session_state.python_code, globals(), locals())
-                    merged_data = locals().get("merged_data")
-                    if merged_data is not None:
-                        st.session_state["merged_data"] = merged_data
-                        st.success("Python 코드 실행 완료!")
-                        st.write(merged_data.head())
-                    else:
-                        st.error("`merged_data` 변수를 생성해야 합니다.")
-                except Exception as e:
-                    st.error(f"Python 코드 실행 중 오류 발생: {e}")
-
-    # 병합된 데이터가 있으면 대시보드에서 분석 가능
-    if "merged_data" in st.session_state:
-        st.subheader("📊 병합된 데이터 분석")
-        st.write(st.session_state["merged_data"].head())
-        # 기존 대시보드 페이지로 연결
-        page = st.radio(
-            "분석 페이지 선택",
-            ["홈", "기초 통계", "변수 분석", "고급 EDA", "머신러닝 모델링"],
-            index=0
+    
+    if upload_type == "단일 파일":
+        uploaded_file = st.file_uploader(
+            "CSV, JSON 또는 엑셀 파일을 업로드하세요",
+            type=['csv', 'json', 'xlsx', 'xls'],
+            help="단일 파일 분석을 위해 업로드하세요."
         )
-        if page == "홈":
-            home.show(st.session_state["merged_data"], "병합된 데이터")
-        elif page == "기초 통계":
-            basic_stats_page.show(st.session_state["merged_data"])
-        elif page == "변수 분석":
-            variable_page.show(st.session_state["merged_data"])
-        elif page == "고급 EDA":
-            advanced_page.show(st.session_state["merged_data"])
-        elif page == "머신러닝 모델링":
-            ml_page.show(st.session_state["merged_data"])
+        
+        # 단일 파일 처리 로직
+        if uploaded_file is not None:
+            with st.status("데이터 처리 중...", expanded=True) as status:
+                st.write("파일 로드 중...")
+                data_df, redundant_info = load_data(uploaded_file)
+                
+                if data_df is not None:
+                    st.session_state['data'] = data_df
+                    st.session_state['filename'] = uploaded_file.name
+                    st.session_state['redundant_cols_info_for_ui'] = redundant_info
+                    st.session_state.active_dataframes[uploaded_file.name] = data_df
+                    
+                    st.write(f"✅ 데이터 로드 완료: {data_df.shape[0]:,}행 × {data_df.shape[1]:,}열")
+                    memory_usage = data_df.memory_usage(deep=True).sum() / (1024 * 1024)
+                    st.write(f"📊 메모리 사용량: {memory_usage:.2f} MB")
+                    
+                    # 대용량 데이터 감지 및 경고
+                    if data_df.shape[0] * data_df.shape[1] > APP_CONFIG["large_data_threshold"]:
+                        st.warning("대용량 데이터가 감지되었습니다. 일부 분석은 시간이 오래 걸릴 수 있습니다.")
+                    status.update(label="데이터 로드 완료!", state="complete")
+                else:
+                    status.update(label="데이터 로드 실패.", state="error")
+                    st.session_state['data'] = None # Ensure data is None if actual_df is None
+                    st.session_state['redundant_cols_info_for_ui'] = []
+    
+    else:  # 다중 파일
+        uploaded_files = st.file_uploader(
+            "여러 파일을 업로드하세요",
+            type=['csv', 'json', 'xlsx', 'xls'],
+            accept_multiple_files=True,
+            help="데이터 병합을 위해 여러 파일을 업로드하세요."
+        )
+        
+        # 다중 파일 처리 로직
+        if uploaded_files:
+            with st.status("다중 파일 처리 중...") as status:
+                progress_bar = st.progress(0)
+                
+                for i, file in enumerate(uploaded_files):
+                    progress_bar.progress((i + 0.5) / len(uploaded_files))
+                    st.write(f"파일 로드 중: {file.name}")
+                    
+                    try:
+                        # 파일 로드
+                        data_df, _ = load_data(file)
+                        if data_df is not None:
+                            # 파일명에서 확장자 제거
+                            file_name = '.'.join(file.name.split('.')[:-1])
+                            # 이미 같은 이름의 파일이 있는 경우 처리
+                            if file_name in st.session_state.active_dataframes:
+                                file_name = f"{file_name}_{len(st.session_state.active_dataframes)}"
+                                
+                            st.session_state.active_dataframes[file_name] = data_df
+                    except Exception as e:
+                        st.error(f"파일 '{file.name}' 로드 중 오류 발생: {str(e)}")
+                    
+                    progress_bar.progress((i + 1) / len(uploaded_files))
+                
+                st.success(f"{len(uploaded_files)}개 파일 로드 완료!")
+                status.update(label="모든 파일 로드 완료!", state="complete")
+    
+    # 샘플 데이터 로직
+    if st.session_state['data'] is None and 'sample_file' in st.session_state and st.session_state.sample_file is not None:
+        with st.status("샘플 데이터 적용 중...") as status:
+            sample_data_tuple = st.session_state.sample_file
 
-    # 데이터 전처리 옵션 (새로 추가)
+            if isinstance(sample_data_tuple, tuple) and \
+               len(sample_data_tuple) == 2 and \
+               isinstance(sample_data_tuple[0], pd.DataFrame) and \
+               isinstance(sample_data_tuple[1], str):
+                
+                df_sample, filename_sample = sample_data_tuple
+                
+                if df_sample is not None:
+                    st.session_state['data'] = df_sample
+                    st.session_state['filename'] = filename_sample
+                    st.session_state["preprocessing_applied"] = False
+                    # 활성 데이터프레임에도 추가
+                    st.session_state.active_dataframes[filename_sample] = df_sample
+                    status.update(label="샘플 데이터 적용 완료!", state="complete")
+                else:
+                    st.error("샘플 데이터의 DataFrame이 비어있습니다.")
+                    status.update(label="샘플 데이터 적용 실패!", state="error")
+            else:
+                st.error("세션의 샘플 데이터 형식이 올바르지 않습니다.")
+                status.update(label="샘플 데이터 형식 오류!", state="error")
+    
+    # 데이터 병합 버튼 - 다중 파일이 업로드된 경우에만 표시
+    if len(st.session_state.active_dataframes) >= 2:
+        st.subheader("🔄 데이터 병합")
+        if st.button("데이터 병합 시작", use_container_width=True):
+            st.session_state["show_merger"] = True
+            st.session_state["merge_step"] = 1  # 병합 단계 초기화
+            st.rerun()
+    
+    # 데이터 전처리 옵션
     if st.session_state['data'] is not None and not st.session_state["preprocessing_applied"]:
         st.subheader("⚙️ 데이터 전처리")
         
-        # Define checkboxes and button inside the expander
-        # Their state will be captured when the script runs
         with st.expander("전처리 옵션", expanded=False):
-            # Use unique keys for widgets to ensure their state is managed correctly
             handle_missing_option = st.checkbox("결측치 처리", value=True, key="cb_handle_missing")
             remove_duplicates_option = st.checkbox("중복 행 제거", value=True, key="cb_remove_duplicates")
             normalize_columns_option = st.checkbox("열 이름 정규화", value=True, key="cb_normalize_columns")
             apply_button_clicked = st.button("전처리 적용", key="btn_apply_preprocessing")
 
-        # If the button was clicked, execute the preprocessing and show status.
-        # This 'if' block is now a sibling to the 'with st.expander(...)' block,
-        # so st.status is no longer nested within st.expander.
         if apply_button_clicked:
             with st.status("전처리 중...") as status:
                 df = st.session_state['data']
-                # Use the captured checkbox values for preprocessing
                 df = preprocess_data(df, {
                     "handle_missing": handle_missing_option,
                     "remove_duplicates": remove_duplicates_option,
@@ -291,21 +266,23 @@ with st.sidebar:
                 status.update(label="전처리 완료!", state="complete")
                 st.rerun()
 
-    # 페이지 선택(데이터 병합 모듈)
+    # 페이지 선택 네비게이션
     st.subheader("📑 페이지 선택")
-    page = st.radio(
-        "",
-        ["홈", "기초 통계", "변수 분석", "고급 EDA", "머신러닝 모델링", "데이터 병합"],
-        index=0,
-        format_func=lambda x: {
-            "홈": "🏠 홈",
-            "기초 통계": "📊 기초 통계",
-            "변수 분석": "📈 변수 분석",
-            "고급 EDA": "🧠 고급 EDA",
-            "머신러닝 모델링": "🤖 머신러닝 모델링",
-            "데이터 병합": "🔄 데이터 병합"  # 새로 추가된 페이지
-        }[x]
-    )
+    if "data" in st.session_state and st.session_state["data"] is not None:
+        page = st.radio(
+            "",
+            ["홈", "기초 통계", "변수 분석", "고급 EDA", "머신러닝 모델링"],
+            format_func=lambda x: {
+                "홈": "🏠 홈",
+                "기초 통계": "📊 기초 통계",
+                "변수 분석": "📈 변수 분석",
+                "고급 EDA": "🧠 고급 EDA",
+                "머신러닝 모델링": "🤖 머신러닝 모델링"
+            }[x]
+        )
+        st.session_state["current_page"] = page
+    else:
+        st.info("데이터를 업로드하여 분석을 시작하세요.")
 
     # 푸터
     st.markdown("---")
@@ -326,25 +303,33 @@ with st.sidebar:
         - **머신러닝 모델링**: 예측 모델 구축 및 평가
         """)
 
-# 메인 콘텐츠 - 페이지에 따른 내용 표시
-if 'data' in st.session_state and st.session_state['data'] is not None:
-    # 인메모리 캐싱을 위한 세션 상태 활용
-    if page == "홈":
+# 메인 콘텐츠 영역
+if "show_merger" in st.session_state and st.session_state["show_merger"]:
+    # 병합 UI 표시
+    from modules.data_merger import show_simplified_merger
+    show_simplified_merger()
+    
+    # 메인 페이지로 돌아가기 버튼
+    if st.button("← 메인 페이지로 돌아가기", key="back_to_main"):
+        st.session_state["show_merger"] = False
+        st.rerun()
+        
+elif "data" in st.session_state and st.session_state["data"] is not None:
+    # 현재 선택된 페이지 표시
+    current_page = st.session_state.get("current_page", "홈")
+    
+    if current_page == "홈":
         home.show(st.session_state['data'], st.session_state['filename'])
-    elif page == "기초 통계":
+    elif current_page == "기초 통계":
         basic_stats_page.show(st.session_state['data'])
-    elif page == "변수 분석":
+    elif current_page == "변수 분석":
         variable_page.show(st.session_state['data'])
-    elif page == "고급 EDA":
+    elif current_page == "고급 EDA":
         advanced_page.show(st.session_state['data'])
-    elif page == "머신러닝 모델링":
+    elif current_page == "머신러닝 모델링":
         ml_page.show(st.session_state['data'])
-    elif page == "데이터 병합":
-        # 새로 추가된 데이터 병합 모듈 호출
-        from modules.data_merger import show as show_data_merger
-        show_data_merger()
 else:
-    # 데이터가 없을 때 샘플 데이터 옵션 제공
+    # 데이터가 없을 때 웰컴 페이지
     home.show_welcome()
 
 # 성능 모니터링 (개발자 모드)
