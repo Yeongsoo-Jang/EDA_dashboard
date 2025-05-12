@@ -191,6 +191,8 @@ with st.sidebar:
             st.session_state['data'] = None
             st.session_state['filename'] = None # filename도 None으로 설정
 
+
+    
     # 사이드바 - 여러 파일 업로드
     st.sidebar.subheader("📁 여러 파일 업로드")
     uploaded_files = st.sidebar.file_uploader(
@@ -289,18 +291,19 @@ with st.sidebar:
                 status.update(label="전처리 완료!", state="complete")
                 st.rerun()
 
-    # 페이지 선택
+    # 페이지 선택(데이터 병합 모듈)
     st.subheader("📑 페이지 선택")
     page = st.radio(
         "",
-        ["홈", "기초 통계", "변수 분석", "고급 EDA", "머신러닝 모델링"],
+        ["홈", "기초 통계", "변수 분석", "고급 EDA", "머신러닝 모델링", "데이터 병합"],
         index=0,
         format_func=lambda x: {
             "홈": "🏠 홈",
             "기초 통계": "📊 기초 통계",
             "변수 분석": "📈 변수 분석",
             "고급 EDA": "🧠 고급 EDA",
-            "머신러닝 모델링": "🤖 머신러닝 모델링"
+            "머신러닝 모델링": "🤖 머신러닝 모델링",
+            "데이터 병합": "🔄 데이터 병합"  # 새로 추가된 페이지
         }[x]
     )
 
@@ -323,7 +326,7 @@ with st.sidebar:
         - **머신러닝 모델링**: 예측 모델 구축 및 평가
         """)
 
-# 메인 콘텐츠 - 데이터에 따른 페이지 표시
+# 메인 콘텐츠 - 페이지에 따른 내용 표시
 if 'data' in st.session_state and st.session_state['data'] is not None:
     # 인메모리 캐싱을 위한 세션 상태 활용
     if page == "홈":
@@ -336,6 +339,10 @@ if 'data' in st.session_state and st.session_state['data'] is not None:
         advanced_page.show(st.session_state['data'])
     elif page == "머신러닝 모델링":
         ml_page.show(st.session_state['data'])
+    elif page == "데이터 병합":
+        # 새로 추가된 데이터 병합 모듈 호출
+        from modules.data_merger import show as show_data_merger
+        show_data_merger()
 else:
     # 데이터가 없을 때 샘플 데이터 옵션 제공
     home.show_welcome()
