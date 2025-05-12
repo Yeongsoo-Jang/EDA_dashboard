@@ -122,3 +122,9 @@ USER_SEGMENTS = {
         'description': '방문만 하고 구매하지 않는 고객'
     }
 }
+
+APP_CONFIG = {
+    "large_data_threshold": 500000,  # 행 * 열이 이 값보다 크면 대용량으로 간주
+    "default_theme": "default",
+    "cache_ttl": 3600  # 캐시 유효 시간(초)
+}
