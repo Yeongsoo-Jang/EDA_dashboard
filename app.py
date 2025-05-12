@@ -150,62 +150,67 @@ with st.sidebar:
         # 샘플 데이터 옵션
         # 이 블록은 st.file_uploader를 통해 파일이 업로드되지 않았을 때 실행됩니다.
         if 'sample_file' in st.session_state and st.session_state.sample_file is not None:
-            # st.session_state.sample_file이 generate_sample_data() 등에 의해 생성된
-            # StringIO 객체라고 가정합니다.
-            with st.status("샘플 데이터 로드 중...") as status:
-                sample_file_io = st.session_state.sample_file
-                df_sample = None
-                filename_sample = None
-                try:
-                    # file-like object (예: StringIO)인지 확인합니다.
-                    if hasattr(sample_file_io, 'name') and hasattr(sample_file_io, 'seek') and hasattr(sample_file_io, 'read'):
-                        filename_sample = sample_file_io.name
-                        sample_file_io.seek(0) # 커서 위치를 처음으로 리셋합니다.
-                        
-                        if filename_sample.endswith('.csv'):
-                            df_sample = pd.read_csv(sample_file_io)
-                        elif filename_sample.endswith('.json'):
-                            df_sample = pd.read_json(sample_file_io)
-                        else:
-                            st.error(f"지원하지 않는 샘플 파일 형식입니다: {filename_sample}")
-                            # df_sample은 None으로 유지됩니다.
-                    else:
-                        # st.session_state.sample_file이 예상치 못한 타입일 경우
-                        st.error("잘못된 샘플 파일 객체입니다. 직접 파싱할 수 없습니다.")
+            # st.session_state.sample_file이 (DataFrame, 파일명) 튜플이라고 가정합니다.
+            # 이 값은 home.py 등에서 generate_sample_data() 호출 후 설정됩니다.
+            with st.status("샘플 데이터 적용 중...") as status:
+                sample_data_tuple = st.session_state.sample_file
 
+                # st.session_state.sample_file이 튜플(DataFrame, 파일명)인지 확인
+                if isinstance(sample_data_tuple, tuple) and \
+                   len(sample_data_tuple) == 2 and \
+                   isinstance(sample_data_tuple[0], pd.DataFrame) and \
+                   isinstance(sample_data_tuple[1], str):
+                    
+                    df_sample, filename_sample = sample_data_tuple
+                    
                     if df_sample is not None:
                         st.session_state['data'] = df_sample
                         st.session_state['filename'] = filename_sample
-                        status.update(label="샘플 데이터 로드 완료!", state="complete")
-                    # else: df_sample이 None이면, 오류가 이미 표시되었거나 나중에 데이터 확인 로직에서 처리됩니다.
-                except Exception as e:
-                    st.error(f"샘플 데이터 로드 중 오류 발생: {e}")
-                    status.update(label=f"샘플 데이터 로드 오류: {e}", state="error")
-                    st.session_state['data'] = None # 오류 발생 시 데이터를 None으로 설정
+                        st.session_state["preprocessing_applied"] = False # 새 데이터 로드시 전처리 플래그 초기화
+                        status.update(label="샘플 데이터 적용 완료!", state="complete")
+                    else:
+                        st.error("샘플 데이터의 DataFrame이 비어있습니다.")
+                        status.update(label="샘플 데이터 적용 실패!", state="error")
+                        st.session_state['data'] = None
+                        st.session_state['filename'] = None
+                else:
+                    st.error("세션의 샘플 데이터 형식이 올바르지 않습니다. (DataFrame, 파일명) 튜플이어야 합니다.")
+                    status.update(label="샘플 데이터 형식 오류!", state="error")
+                    st.session_state['data'] = None
+                    st.session_state['filename'] = None
         else:
             st.session_state['data'] = None
+            st.session_state['filename'] = None # filename도 None으로 설정
 
     # 데이터 전처리 옵션 (새로 추가)
     if st.session_state['data'] is not None and not st.session_state["preprocessing_applied"]:
         st.subheader("⚙️ 데이터 전처리")
         
+        # Define checkboxes and button inside the expander
+        # Their state will be captured when the script runs
         with st.expander("전처리 옵션", expanded=False):
-            handle_missing = st.checkbox("결측치 처리", value=True)
-            remove_duplicates = st.checkbox("중복 행 제거", value=True)
-            normalize_columns = st.checkbox("열 이름 정규화", value=True)
-            
-            if st.button("전처리 적용"):
-                with st.status("전처리 중...") as status:
-                    df = st.session_state['data']
-                    df = preprocess_data(df, {
-                        "handle_missing": handle_missing,
-                        "remove_duplicates": remove_duplicates,
-                        "normalize_columns": normalize_columns
-                    })
-                    st.session_state['data'] = df
-                    st.session_state["preprocessing_applied"] = True
-                    status.update(label="전처리 완료!", state="complete")
-                    st.rerun()
+            # Use unique keys for widgets to ensure their state is managed correctly
+            handle_missing_option = st.checkbox("결측치 처리", value=True, key="cb_handle_missing")
+            remove_duplicates_option = st.checkbox("중복 행 제거", value=True, key="cb_remove_duplicates")
+            normalize_columns_option = st.checkbox("열 이름 정규화", value=True, key="cb_normalize_columns")
+            apply_button_clicked = st.button("전처리 적용", key="btn_apply_preprocessing")
+
+        # If the button was clicked, execute the preprocessing and show status.
+        # This 'if' block is now a sibling to the 'with st.expander(...)' block,
+        # so st.status is no longer nested within st.expander.
+        if apply_button_clicked:
+            with st.status("전처리 중...") as status:
+                df = st.session_state['data']
+                # Use the captured checkbox values for preprocessing
+                df = preprocess_data(df, {
+                    "handle_missing": handle_missing_option,
+                    "remove_duplicates": remove_duplicates_option,
+                    "normalize_columns": normalize_columns_option
+                })
+                st.session_state['data'] = df
+                st.session_state["preprocessing_applied"] = True
+                status.update(label="전처리 완료!", state="complete")
+                st.rerun()
 
     # 페이지 선택
     st.subheader("📑 페이지 선택")

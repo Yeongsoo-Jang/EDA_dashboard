@@ -128,17 +128,34 @@ def get_data_quality_report(df: pd.DataFrame) -> Dict:
                         "kurtosis": df[col].kurt(),
                     })
                     
-                    # 이상치 감지 (IQR 방식)
-                    q1 = df[col].quantile(0.25)
-                    q3 = df[col].quantile(0.75)
-                    iqr = q3 - q1
-                    lower_bound = q1 - 1.5 * iqr
-                    upper_bound = q3 + 1.5 * iqr
-                    outliers = df[(df[col] < lower_bound) | (df[col] > upper_bound)][col]
-                    col_info["outliers_count"] = len(outliers)
-                    col_info["outliers_percentage"] = (len(outliers) / df[col].count()) * 100 if df[col].count() > 0 else 0
-                    col_info["outliers_lower_bound"] = lower_bound
-                    col_info["outliers_upper_bound"] = upper_bound
+                    # 이상치 감지 (IQR 방식) - 숫자형이지만 이진(0/1) 값만 갖는 경우 IQR 계산이 무의미하거나 오류를 유발할 수 있음
+                    is_binary_numeric = False
+                    if df[col].nunique(dropna=True) <= 2:
+                        unique_values = df[col].dropna().unique()
+                        if len(unique_values) > 0 and all(val in [0, 1, 0.0, 1.0] for val in unique_values):
+                            is_binary_numeric = True
+
+                    if not is_binary_numeric:
+                        q1 = df[col].quantile(0.25)
+                        q3 = df[col].quantile(0.75)
+                        
+                        if pd.notna(q1) and pd.notna(q3):
+                            iqr = q3 - q1
+                            lower_bound = q1 - 1.5 * iqr
+                            upper_bound = q3 + 1.5 * iqr
+                            outliers = df[(df[col] < lower_bound) | (df[col] > upper_bound)][col]
+                            col_info["outliers_count"] = len(outliers)
+                            col_info["outliers_percentage"] = (len(outliers) / df[col].count()) * 100 if df[col].count() > 0 else 0
+                            col_info["outliers_lower_bound"] = lower_bound
+                            col_info["outliers_upper_bound"] = upper_bound
+                        else: # q1 또는 q3가 NaN인 경우 (예: 모든 값이 NaN)
+                            col_info["outliers_count"] = 0
+                            col_info["outliers_percentage"] = 0.0
+                            col_info["outliers_lower_bound"] = np.nan
+                            col_info["outliers_upper_bound"] = np.nan
+                    else: # 이진 숫자형 열의 경우 IQR 기반 이상치 정보 N/A 처리
+                        col_info["outliers_count"] = "N/A (binary numeric)"
+                        col_info["outliers_percentage"] = "N/A (binary numeric)"
         
         elif pd.api.types.is_datetime64_dtype(df[col]):
             if not df[col].isna().all():
@@ -192,8 +209,11 @@ def calculate_data_quality_score(quality_report: Dict) -> Dict:
     # 이상치에 따른 감점 (최대 -30점)
     outlier_penalty = 0
     for col_info in quality_report["columns"]:
-        if "outliers_percentage" in col_info and col_info["outliers_percentage"] > 5:
-            outlier_penalty += min(10, col_info["outliers_percentage"] * 0.5)
+        # "outliers_percentage"가 숫자인 경우에만 비교 및 감점 계산
+        if "outliers_percentage" in col_info and \
+           isinstance(col_info["outliers_percentage"], (int, float)) and \
+           col_info["outliers_percentage"] > 5:
+            outlier_penalty += min(10, col_info["outliers_percentage"] * 0.5) # type: ignore
     
     outlier_penalty = min(30, outlier_penalty)
     score -= outlier_penalty

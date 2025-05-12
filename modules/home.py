@@ -1,4 +1,4 @@
-# pages/home.py - 오늘의집 홈페이지 UI
+# pages/home.py - 홈페이지 UI
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -63,7 +63,7 @@ def show_welcome():
         """)
 
     with col2:
-        # 오늘의집 로고/배너
+        # 로고/배너
         logo_html = f"""
         <div style="display: flex; justify-content: center; margin: 2rem 0;">
             <div style="background-color: {colors['primary']}; color: white; 
@@ -97,20 +97,28 @@ def show_welcome():
         </div>
         """, unsafe_allow_html=True)
         if st.button("판매 데이터 로드", key="sales_data"):
-            st.session_state.sample_file = generate_sample_data()
-            if st.session_state.sample_file:
-                st.session_state.current_df = st.session_state.sample_file[0]
-                st.session_state.current_filename = st.session_state.sample_file[1]
-                st.session_state.data_source_is_sample = True # Flag for app.py
-                st.experimental_rerun() # Rerun app.py to use the sample data
-
-            # st.success("오늘의집 샘플 데이터가 로드되었습니다! 사이드바에서 분석을 시작하세요.")
+            # 오류 디버깅을 위해 try-except 구문 추가
+            try:
+                with st.spinner("샘플 데이터를 생성하는 중..."):
+                    # 샘플 데이터 생성
+                    sample_data = generate_sample_data()
+                    
+                    if sample_data:
+                        st.session_state.sample_file = sample_data
+                        st.session_state.current_df = sample_data[0]
+                        st.session_state.current_filename = sample_data[1]
+                        st.session_state.data_source_is_sample = True
+                        st.success("샘플 데이터가 성공적으로 로드되었습니다!")
+                        # rerun 전에 메시지 표시
+                        st.rerun()
+            except Exception as e:
+                st.error(f"샘플 데이터 로드 중 오류가 발생했습니다: {str(e)}")
     
     with col2:
         st.markdown("""
         <div style="background-color: white; border-radius: 10px; padding: 1rem; height: 200px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
             <h4 style="color: {colors['text']};">👥 고객 데이터</h4>
-            <p>오늘의집 고객 세그먼트 및 행동 데이터 샘플</p>
+            <p>고객 세그먼트 및 행동 데이터 샘플</p>
             <p style="font-size: 0.8rem; color: gray;">500+ 고객, 다양한 세그먼트</p>
         </div>
         """, unsafe_allow_html=True)
@@ -123,7 +131,7 @@ def show_welcome():
         st.markdown("""
         <div style="background-color: white; border-radius: 10px; padding: 1rem; height: 200px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
             <h4 style="color: {colors['text']};">🏷️ 상품 데이터</h4>
-            <p>오늘의집 상품 및 카테고리 데이터 샘플</p>
+            <p>상품 및 카테고리 데이터 샘플</p>
             <p style="font-size: 0.8rem; color: gray;">100+ 상품, 15+ 카테고리</p>
         </div>
         """, unsafe_allow_html=True)
@@ -185,7 +193,7 @@ def show_welcome():
     # 푸터
     st.markdown("""
     <div style="margin-top: 3rem; text-align: center; color: gray; font-size: 0.8rem;">
-        © 2025 오늘의집 데이터 분석팀 | 문의: data-team@ohouse.com
+        © 2025 데이터 분석팀 | 문의: data-team@ohouse.com
     </div>
     """, unsafe_allow_html=True)
     
@@ -284,14 +292,14 @@ def show(df, filename):
         font-weight: 600;
     }}
     button[data-baseweb="tab"][aria-selected="true"] {{
-        color: {BRAND_COLORS['primary']} !important;
-        border-bottom-color: {BRAND_COLORS['primary']} !important;
+        color: {colors['primary']} !important;
+        border-bottom-color: {colors['primary']} !important;
     }}
     </style>
     """, unsafe_allow_html=True)
     
     # 상단 헤더
-    st.title(f"📊 오늘의집 데이터 분석")
+    st.title(f"📊 EDA 데이터 분석")
     st.markdown(f"<h4 style='margin-top: -10px; color: {colors['text']}; opacity: 0.8;'>{filename} 분석 결과</h4>", 
                unsafe_allow_html=True)
     
@@ -387,8 +395,11 @@ def show(df, filename):
     # 이상치에 따른 감점 (최대 -30점)
     outlier_penalty = 0
     for col_info in quality_report["columns"]:
-        if "outliers_percentage" in col_info and col_info["outliers_percentage"] > 10:
-            outlier_penalty += min(10, col_info["outliers_percentage"] * 0.5)
+        # "outliers_percentage"가 숫자인 경우에만 비교 및 감점 계산
+        if "outliers_percentage" in col_info and \
+           isinstance(col_info["outliers_percentage"], (int, float)) and \
+           col_info["outliers_percentage"] > 10:
+            outlier_penalty += min(10, col_info["outliers_percentage"] * 0.5) # type: ignore
     
     quality_score -= min(30, outlier_penalty)
     
@@ -550,9 +561,9 @@ def show(df, filename):
                 st.markdown(create_kpi_card(
                     "총 매출액", 
                     current_revenue, 
-                    previous_revenue, 
-                    format_str="{:,.0f}", 
                     colors=colors,
+                    previous_value=previous_revenue, 
+                    format_str="{:,.0f}", 
                     unit="원",
                     target=target_revenue,
                     icon="💰"
@@ -562,9 +573,9 @@ def show(df, filename):
                 st.markdown(create_kpi_card(
                     "주문 수", 
                     current_orders, 
-                    previous_orders, 
-                    format_str="{:,d}", 
                     colors=colors,
+                    previous_value=previous_orders, 
+                    format_str="{:,d}", 
                     unit="건",
                     icon="📦"
                 ), unsafe_allow_html=True)
@@ -573,9 +584,9 @@ def show(df, filename):
                 st.markdown(create_kpi_card(
                     "객단가", 
                     current_aov, 
-                    previous_aov, 
-                    format_str="{:,.0f}", 
                     colors=colors,
+                    previous_value=previous_aov, 
+                    format_str="{:,.0f}", 
                     unit="원",
                     target=target_aov,
                     icon="💎"
@@ -585,10 +596,10 @@ def show(df, filename):
                 st.markdown(create_kpi_card(
                     "고객 수", 
                     current_customers, 
-                    previous_customers, 
+                    colors=colors,
+                    previous_value=previous_customers, 
                     format_str="{:,d}", 
-                    unit="명",
-                    colors=colors
+                    unit="명"
                 ), unsafe_allow_html=True)
         else:
             st.info("주요 비즈니스 지표를 계산하는 데 필요한 열이 없습니다.")
@@ -825,8 +836,8 @@ def show(df, filename):
     st.subheader(f"💡 주요 인사이트")
     
     try:
-        # 오늘의집 데이터 인사이트 생성
-        insights = generate_today_house_insights(filtered_df)
+        # 데이터 인사이트 생성
+        insights = generate_data_quality_insights(filtered_df)
         kpi_insights = generate_kpi_insights(filtered_df)
         
         all_insights = insights + kpi_insights

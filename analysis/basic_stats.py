@@ -98,7 +98,7 @@ class BasicStatistics(DataAnalyzer):
         super().__init__(df)
     
     @st.cache_data(ttl=3600)
-    def get_basic_stats(self, percentiles: List[float] = None) -> pd.DataFrame:
+    def get_basic_stats(_self, percentiles: List[float] = None) -> pd.DataFrame:
         """수치형 변수의 기초 통계량을 계산합니다.
         
         Parameters:
@@ -114,10 +114,10 @@ class BasicStatistics(DataAnalyzer):
         if percentiles is None:
             percentiles = [0.25, 0.5, 0.75]
         
-        numeric_df = self.df[self.numeric_cols]
+        numeric_df = _self.df[_self.numeric_cols]
         
         # 성능 최적화: 대용량 데이터인 경우 일부 통계만 계산
-        is_large_dataset = len(self.df) > 100000
+        is_large_dataset = len(_self.df) > 100000
         
         # 기본 통계량 계산
         stats_dict = {
@@ -126,7 +126,7 @@ class BasicStatistics(DataAnalyzer):
             '최소값': numeric_df.min(),
             '최대값': numeric_df.max(),
             '표준편차': numeric_df.std(),
-            '결측치 수': self.df[self.numeric_cols].isnull().sum()
+            '결측치 수': _self.df[_self.numeric_cols].isnull().sum()
         }
         
         # 백분위수 계산
@@ -143,11 +143,11 @@ class BasicStatistics(DataAnalyzer):
             
             # 정규성 검정 (Shapiro-Wilk)
             normality_test = {}
-            for col in self.numeric_cols:
+            for col in _self.numeric_cols:
                 # 표본 크기가 너무 크면 검정이 항상 귀무가설을 기각하는 경향이 있음
                 # 최대 5000개 샘플로 제한
-                sample_size = min(5000, len(self.df))
-                sample = self.df[col].dropna().sample(n=sample_size, random_state=42) if len(self.df[col].dropna()) > sample_size else self.df[col].dropna()
+                sample_size = min(5000, len(_self.df))
+                sample = _self.df[col].dropna().sample(n=sample_size, random_state=42) if len(_self.df[col].dropna()) > sample_size else _self.df[col].dropna()
                 
                 if len(sample) >= 3:  # 최소 3개 이상의 데이터 필요
                     try:
@@ -168,7 +168,7 @@ class BasicStatistics(DataAnalyzer):
         return stats_df
     
     @st.cache_data(ttl=3600)
-    def get_categorical_stats(self) -> pd.DataFrame:
+    def get_categorical_stats(_self) -> pd.DataFrame:
         """범주형 변수의 통계를 계산합니다.
         
         Returns:
@@ -176,16 +176,16 @@ class BasicStatistics(DataAnalyzer):
         DataFrame
             범주형 변수의 통계가 포함된 데이터프레임
         """
-        categorical_df = self.df[self.categorical_cols]
+        categorical_df = _self.df[_self.categorical_cols]
         
         if categorical_df.empty:
             return pd.DataFrame()
         
         stats = {}
         
-        for col in self.categorical_cols:
-            value_counts = self.df[col].value_counts()
-            unique_count = self.df[col].nunique()
+        for col in _self.categorical_cols:
+            value_counts = _self.df[col].value_counts()
+            unique_count = _self.df[col].nunique()
             
             # 최빈값
             top_values = value_counts.head(3).index.tolist() if not value_counts.empty else []
@@ -193,21 +193,21 @@ class BasicStatistics(DataAnalyzer):
             
             # 범주별 비율
             total_count = value_counts.sum()
-            top_value_percent = value_counts.iloc[0] / total_count * 100 if not value_counts.empty else 0
+            top_value_percent = value_counts.iloc[0] / total_count * 100 if total_count > 0 else 0
             
             stats[col] = {
                 '고유값 수': unique_count,
                 '최빈값': top_values_str,
                 '최빈값 빈도': value_counts.iloc[0] if not value_counts.empty else 0,
                 '최빈값 비율(%)': round(top_value_percent, 2),
-                '결측치 수': self.df[col].isnull().sum(),
-                '결측치 비율(%)': round(self.df[col].isnull().sum() / len(self.df) * 100, 2),
-                '엔트로피': self._calculate_entropy(self.df[col])
+                '결측치 수': _self.df[col].isnull().sum(),
+                '결측치 비율(%)': round(_self.df[col].isnull().sum() / len(_self.df) * 100, 2),
+                '엔트로피': _self._calculate_entropy(_self.df[col])
             }
         
         return pd.DataFrame(stats).T
     
-    def _calculate_entropy(self, series: pd.Series) -> float:
+    def _calculate_entropy(_self, series: pd.Series) -> float:
         """범주형 변수의 엔트로피를 계산합니다."""
         value_counts = series.value_counts(normalize=True)
         return -sum(p * np.log2(p) for p in value_counts if p > 0)

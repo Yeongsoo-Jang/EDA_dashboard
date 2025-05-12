@@ -1,6 +1,7 @@
 # pages/variable_page.py - 변수 분석 페이지 UI
 import streamlit as st
 import pandas as pd
+import plotly.express as px # Plotly Express 모듈 추가
 from visualizations.distribution_viz import plot_distribution_analysis, plot_categorical_distribution, plot_qq_plot
 from visualizations.correlation_viz import plot_scatter_matrix
 from utils.data_processor import detect_outliers

@@ -21,7 +21,8 @@ def get_default_theme() -> Dict[str, Any]:
         "color_secondary": colors["secondary"],
         "color_accent": colors["accent"],
         "color_text": colors["text"],
-        "colorscale": COLORSCALES.get(selected_theme, COLORSCALES["default"]),
+        # Provide a hardcoded fallback if "default" is not in COLORSCALES
+        "colorscale": COLORSCALES.get(selected_theme, COLORSCALES.get("default", "Viridis")),
         "colorscale_diverging": COLORSCALES.get("diverging", "RdBu_r"),
         "opacity": 0.8,
         "title_font_size": 18,

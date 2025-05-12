@@ -311,7 +311,7 @@ class KMeansClustering(ClusterAnalyzer):
         super().__init__(df)
     
     @st.cache_data(ttl=3600)
-    def perform_kmeans_clustering(self, n_clusters: int = 3, columns: List[str] = None, 
+    def perform_kmeans_clustering(_self, n_clusters: int = 3, columns: List[str] = None, 
                                 scaler_type: str = 'standard', random_state: int = 42,
                                 n_init: int = 10) -> Tuple[pd.DataFrame, np.ndarray, float]:
         """K-means 군집화를 수행합니다.
@@ -339,37 +339,38 @@ class KMeansClustering(ClusterAnalyzer):
             start_time = time.time()
             
             # 데이터 스케일링
-            scaled_data = self._scale_data(columns, scaler_type)
+            scaled_data = _self._scale_data(columns, scaler_type)
             
             # K-means 군집화
             kmeans = KMeans(n_clusters=n_clusters, random_state=random_state, n_init=n_init)
-            self.labels = kmeans.fit_predict(scaled_data)
-            self.cluster_model = kmeans
-            self.centers = kmeans.cluster_centers_
+            _self.labels = kmeans.fit_predict(scaled_data)
+            _self.cluster_model = kmeans
+            _self.centers = kmeans.cluster_centers_
             
             # 실루엣 점수 계산
-            if len(set(self.labels)) > 1:  # 최소 2개 이상의 군집이 있어야 함
-                self.silhouette_avg = silhouette_score(scaled_data, self.labels)
+            if len(set(_self.labels)) > 1:  # 최소 2개 이상의 군집이 있어야 함
+                _self.silhouette_avg = silhouette_score(scaled_data, _self.labels)
             else:
-                self.silhouette_avg = 0
+                _self.silhouette_avg = 0
             
             # 결과 데이터프레임 생성
-            self.clustered_df = self._prepare_result_df(self.labels)
+            _self.clustered_df = _self._prepare_result_df(_self.labels)
             
             # 실행 시간 기록
             execution_time = time.time() - start_time
-            if 'kmeans' not in self.execution_times:
-                self.execution_times['kmeans'] = []
-            self.execution_times['kmeans'].append(execution_time)
+            if 'kmeans' not in _self.execution_times:
+                _self.execution_times['kmeans'] = []
+            _self.execution_times['kmeans'].append(execution_time)
             
-            return self.clustered_df, self.centers, self.silhouette_avg
+            return _self.clustered_df, _self.centers, _self.silhouette_avg
             
         except Exception as e:
             print(f"K-means 군집화 중 오류 발생: {str(e)}")
             return pd.DataFrame(), np.array([]), 0.0
     
-    def get_optimal_clusters(self, max_clusters: int = 10, columns: List[str] = None,
-                          scaler_type: str = 'standard', method: str = 'silhouette') -> Tuple[List[int], List[float], List[float]]:
+    @st.cache_data(ttl=3600) # Added cache decorator as it's likely intended and good practice
+    def get_optimal_clusters(_self, max_clusters: int = 10, columns: List[str] = None,
+                          scaler_type: str = 'standard', method: str = 'silhouette') -> Tuple[List[int], List[float], List[float], pd.DataFrame]:
         """최적의 군집 수를 찾습니다.
         
         Parameters:
@@ -385,11 +386,11 @@ class KMeansClustering(ClusterAnalyzer):
         
         Returns:
         --------
-        tuple
-            (군집 수 범위, 실루엣 점수, 관성)
+        tuple 
+            (군집 수 범위, 실루엣 점수, 관성, 모든 평가 지표가 포함된 결과 데이터프레임)
         """
         # 데이터 스케일링
-        scaled_data = self._scale_data(columns, scaler_type)
+        scaled_data = _self._scale_data(columns, scaler_type)
         
         # 군집 수 범위
         n_clusters_range = range(2, max_clusters + 1)
@@ -470,9 +471,8 @@ class KMeansClustering(ClusterAnalyzer):
             best_n_clusters = n_clusters_range[np.argmin(db_scores)]
         else:
             best_n_clusters = 3  # 기본값
-        
         # 최적 군집 수 저장
-        self.optimal_n_clusters = best_n_clusters
+        _self.optimal_n_clusters = best_n_clusters
         
         return list(n_clusters_range), silhouette_scores, inertia_values, results_df
     

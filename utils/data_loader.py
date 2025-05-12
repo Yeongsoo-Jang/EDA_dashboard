@@ -56,13 +56,13 @@ def load_data(file):
         st.success(f"데이터 로딩 완료! ({loading_time:.2f}초)")
         
         # 자동 전처리
-        data = preprocess_data(data)
+        data, redundant_cols_info_from_preprocessing = preprocess_data(data)
         
-        return data
+        return data, redundant_cols_info_from_preprocessing
     
     except Exception as e:
         st.error(f"데이터 로딩 중 오류 발생: {str(e)}")
-        return None
+        return None, [] # Return None for data and empty list for info on error
 
 def preprocess_data(data):
     """데이터를 자동으로 전처리합니다."""
@@ -89,30 +89,29 @@ def preprocess_data(data):
                     pass
 
     # 불필요한 열 식별 (모든 값이 동일하거나 거의 모든 값이 NA인 경우)
-    redundant_cols = []
+    redundant_cols_info = [] 
     for col in data.columns:
         # 모든 값이 동일한 경우
         if data[col].nunique() == 1:
-            redundant_cols.append(col)
+            redundant_cols_info.append({
+                "name": col, 
+                "reason": "all_same", 
+                "value": data[col].iloc[0] if len(data[col]) > 0 else "N/A"
+            })
         # 90% 이상이 NA인 경우
         elif data[col].isna().mean() > 0.9:
-            redundant_cols.append(col)
+            redundant_cols_info.append({
+                "name": col, 
+                "reason": "mostly_na", 
+                "percentage_na": data[col].isna().mean() * 100
+            })
     
-    # 불필요한 열 목록 사용자에게 표시
-    if redundant_cols:
-        with st.sidebar.expander("불필요한 열 감지됨", expanded=False):
-            st.write("다음 열은 분석 가치가 낮을 수 있습니다:")
-            for col in redundant_cols:
-                if data[col].nunique() == 1:
-                    st.write(f"- {col}: 모든 값이 '{data[col].iloc[0]}'로 동일함")
-                else:
-                    st.write(f"- {col}: {data[col].isna().mean()*100:.1f}%가 결측치")
-                    
-            if st.button("불필요한 열 제거"):
-                data = data.drop(columns=redundant_cols)
-                st.success(f"{len(redundant_cols)}개 열이 제거되었습니다.")
+    # The UI for displaying and acting on redundant_cols_info
+    # will be handled in app.py, outside the st.status block.
+    # This function no longer creates Streamlit UI elements directly
+    # and does not drop columns based on UI interaction within it.
     
-    return data
+    return data, redundant_cols_info
 
 def generate_sample_product_data():
     """오늘의집 제품 데이터 샘플을 생성합니다."""

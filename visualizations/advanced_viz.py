@@ -71,11 +71,24 @@ def plot_radar_chart(df, category_col, value_cols):
 
 def plot_parallel_coordinates(df, cols, color_col):
     """병렬 좌표 그래프를 생성합니다."""
+    df_plot = df.copy()
+
+    # Ensure the color column is treated as categorical if it's an object/string type
+    # This helps Plotly assign discrete colors.
+    # However, if color_col has too many unique values (like an ID),
+    # the plot might still be unreadable or error out.
+    # The calling code in advanced_page.py should ideally ensure
+    # color_col is suitable for coloring (e.g., not a high-cardinality ID).
+    if color_col and df_plot[color_col].dtype == 'object':
+        # Convert to category only if it's not already, and has manageable unique values
+        if df_plot[color_col].nunique() < 50: # Example threshold, adjust as needed
+            df_plot[color_col] = df_plot[color_col].astype('category')
+
     fig = px.parallel_coordinates(
-        df, 
+        df_plot, 
         dimensions=cols,
         color=color_col,
-        title=f"병렬 좌표 그래프: {color_col}에 따른 특성 비교",
+        title=f"병렬 좌표 그래프: {color_col}에 따른 특성 비교" if color_col else "병렬 좌표 그래프",
         template="plotly_white"
     )
     
