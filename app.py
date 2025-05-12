@@ -121,20 +121,6 @@ with st.sidebar:
     """
     st.markdown(logo_html, unsafe_allow_html=True)
     
-    # 테마 선택 (새로 추가)
-    st.subheader("🎨 테마 설정")
-    theme_options = list(BRAND_COLORS.keys())
-    selected_theme = st.selectbox(
-        "테마 선택", 
-        theme_options, 
-        index=theme_options.index(st.session_state.get("theme", "default"))
-    )
-    
-    if selected_theme != st.session_state.get("theme"):
-        st.session_state["theme"] = selected_theme
-        apply_theme(selected_theme)
-        st.rerun()
-
     # 파일 업로드 섹션
     st.subheader("📁 데이터 업로드")
     uploaded_file = st.file_uploader("CSV, JSON 또는 엑셀 파일을 업로드하세요", 
@@ -162,13 +148,40 @@ with st.sidebar:
             status.update(label="데이터 로드 완료!", state="complete")
     else:
         # 샘플 데이터 옵션
-        if 'sample_file' in st.session_state:
+        # 이 블록은 st.file_uploader를 통해 파일이 업로드되지 않았을 때 실행됩니다.
+        if 'sample_file' in st.session_state and st.session_state.sample_file is not None:
+            # st.session_state.sample_file이 generate_sample_data() 등에 의해 생성된
+            # StringIO 객체라고 가정합니다.
             with st.status("샘플 데이터 로드 중...") as status:
-                uploaded_file = st.session_state.sample_file
-                df = load_data(uploaded_file)
-                st.session_state['data'] = df
-                st.session_state['filename'] = uploaded_file.name
-                status.update(label="샘플 데이터 로드 완료!", state="complete")
+                sample_file_io = st.session_state.sample_file
+                df_sample = None
+                filename_sample = None
+                try:
+                    # file-like object (예: StringIO)인지 확인합니다.
+                    if hasattr(sample_file_io, 'name') and hasattr(sample_file_io, 'seek') and hasattr(sample_file_io, 'read'):
+                        filename_sample = sample_file_io.name
+                        sample_file_io.seek(0) # 커서 위치를 처음으로 리셋합니다.
+                        
+                        if filename_sample.endswith('.csv'):
+                            df_sample = pd.read_csv(sample_file_io)
+                        elif filename_sample.endswith('.json'):
+                            df_sample = pd.read_json(sample_file_io)
+                        else:
+                            st.error(f"지원하지 않는 샘플 파일 형식입니다: {filename_sample}")
+                            # df_sample은 None으로 유지됩니다.
+                    else:
+                        # st.session_state.sample_file이 예상치 못한 타입일 경우
+                        st.error("잘못된 샘플 파일 객체입니다. 직접 파싱할 수 없습니다.")
+
+                    if df_sample is not None:
+                        st.session_state['data'] = df_sample
+                        st.session_state['filename'] = filename_sample
+                        status.update(label="샘플 데이터 로드 완료!", state="complete")
+                    # else: df_sample이 None이면, 오류가 이미 표시되었거나 나중에 데이터 확인 로직에서 처리됩니다.
+                except Exception as e:
+                    st.error(f"샘플 데이터 로드 중 오류 발생: {e}")
+                    status.update(label=f"샘플 데이터 로드 오류: {e}", state="error")
+                    st.session_state['data'] = None # 오류 발생 시 데이터를 None으로 설정
         else:
             st.session_state['data'] = None
 

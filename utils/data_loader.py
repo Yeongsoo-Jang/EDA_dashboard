@@ -3,7 +3,7 @@ import pandas as pd
 import streamlit as st
 from io import StringIO
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 import os
 import time
@@ -192,7 +192,8 @@ def generate_sample_order_data(products_df, n_orders=2000):
         order_date = np.random.choice(dates)
         
         # 계절성 - 특정 카테고리는 특정 시즌에 인기
-        month = order_date.month
+        order_date_pd = pd.Timestamp(order_date)
+        month = order_date_pd.month
         if month in [12, 1, 2]:  # 겨울
             seasonal_categories = ['패브릭', '침구', '커튼/블라인드', '가전']
         elif month in [3, 4, 5]:  # 봄
@@ -231,7 +232,10 @@ def generate_sample_order_data(products_df, n_orders=2000):
         total_price = discounted_price * quantity - coupon_amount
         
         # 주문 상태
-        days_since_order = (now - order_date).days
+        order_datetime = pd.Timestamp.fromtimestamp(order_date, tz='UTC').replace(tzinfo=None) if isinstance(order_date, (int, float)) else pd.Timestamp(order_date)
+        current_time_naive = now.replace(tzinfo=None) if now.tzinfo else now
+        days_since_order = (current_time_naive - order_datetime.replace(tzinfo=None)).days
+
         if days_since_order < 2:
             status = np.random.choice(['결제완료', '상품준비중', '배송중'], p=[0.3, 0.4, 0.3])
         elif days_since_order < 7:
@@ -422,9 +426,9 @@ def generate_sample_data():
     user_info = users_df[['user_id', 'gender', 'age_group', 'join_date', 'user_segment']].copy()
     merged_df = merged_df.merge(user_info, on='user_id', how='left')
     
-    # CSV 문자열로 변환
-    csv_str = merged_df.to_csv(index=False)
-    sample_file = StringIO(csv_str)
-    sample_file.name = "통합데이터_샘플.csv"
+    # # CSV 문자열로 변환
+    # csv_str = merged_df.to_csv(index=False)
+    # sample_file = StringIO(csv_str)
+    # sample_file.name = "통합데이터_샘플.csv"
     
-    return sample_file
+    return merged_df, "통합데이터_샘플.csv"

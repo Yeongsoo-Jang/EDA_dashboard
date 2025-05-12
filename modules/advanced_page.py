@@ -1,8 +1,8 @@
 # pages/advanced_page.py - 고급 EDA 페이지 UI
 import streamlit as st
 import pandas as pd
-from analysis.pca import perform_pca, get_pca_biplot_data
-from analysis.clustering import perform_kmeans_clustering, get_optimal_clusters
+from analysis.pca import PCA
+from analysis.clustering import KMeansClustering
 from visualizations.advanced_viz import plot_3d_scatter, plot_radar_chart, plot_parallel_coordinates
 import plotly.express as px
 
@@ -29,8 +29,9 @@ def show(df):
         # PCA 파라미터 설정
         n_components = st.slider("주성분 개수", min_value=2, max_value=min(5, len(numeric_cols)), value=2)
         
-        # PCA 수행
-        pca_df, explained_variance, loadings = perform_pca(df, n_components)
+        # PCA 객체 생성 및 PCA 수행
+        pca_analyzer = PCA(df)
+        pca_df, explained_variance, loadings = pca_analyzer.perform_pca(df, n_components)
         
         # 결과 표시
         st.subheader("PCA 결과")
@@ -97,7 +98,8 @@ def show(df):
         if n_components == 2:
             st.subheader("바이플롯 (변수와 관측치 함께 시각화)")
             
-            pca_df, explained_variance, scaled_loadings = get_pca_biplot_data(df)
+            # PCA 객체의 get_pca_biplot_data 사용
+            pca_df, explained_variance, scaled_loadings = pca_analyzer.get_pca_biplot_data(df)
             
             fig = px.scatter(
                 pca_df,
@@ -136,27 +138,17 @@ def show(df):
         st.subheader("최적의 군집 수 선택")
         max_clusters = st.slider("최대 군집 수", min_value=2, max_value=10, value=6)
         
-        n_clusters_range, silhouette_scores, inertia_values = get_optimal_clusters(df, max_clusters)
+        # KMeansClustering 객체 생성
+        kmeans_analyzer = KMeansClustering(df)
+        n_clusters_range, silhouette_scores, inertia_values = kmeans_analyzer.get_optimal_clusters(max_clusters)
         
         # 실루엣 점수 시각화
-        fig1 = px.line(
+        fig2 = px.line(
             x=n_clusters_range,
             y=silhouette_scores,
             markers=True,
             title="군집 수에 따른 실루엣 점수",
             labels={'x': '군집 수', 'y': '실루엣 점수'},
-            template="plotly_white"
-        )
-        
-        st.plotly_chart(fig1, use_container_width=True)
-        
-        # 관성(Inertia) 시각화 - 엘보우 방법
-        fig2 = px.line(
-            x=n_clusters_range,
-            y=inertia_values,
-            markers=True,
-            title="군집 수에 따른 관성 (Elbow Method)",
-            labels={'x': '군집 수', 'y': '관성'},
             template="plotly_white"
         )
         
@@ -166,7 +158,7 @@ def show(df):
         n_clusters = st.slider("군집 수 선택", min_value=2, max_value=max_clusters, value=3)
         
         # K-means 군집화 수행
-        clustered_df, centers, silhouette_avg = perform_kmeans_clustering(df, n_clusters)
+        clustered_df, centers, silhouette_avg = kmeans_analyzer.perform_kmeans_clustering(n_clusters)
         
         st.metric("실루엣 점수", f"{silhouette_avg:.4f}")
         
@@ -213,6 +205,24 @@ def show(df):
                 )
             
             st.plotly_chart(fig, use_container_width=True)
+        
+        # 군집별 통계
+        st.subheader("군집별 통계")
+        
+        cluster_stats = clustered_df.groupby('군집')[numeric_cols].mean()
+        
+        # 히트맵으로 군집별 특성 시각화
+        fig = px.imshow(
+            cluster_stats,
+            text_auto='.2f',
+            aspect="auto",
+            color_continuous_scale='RdBu_r',
+            title="군집별 평균값",
+            labels=dict(x="변수", y="군집", color="값"),
+            template="plotly_white"
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
         
         # 군집별 통계
         st.subheader("군집별 통계")

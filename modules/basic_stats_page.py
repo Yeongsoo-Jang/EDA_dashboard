@@ -1,24 +1,28 @@
 # pages/basic_stats_page.py - 기초 통계 페이지 UI
 import streamlit as st
 import pandas as pd
-from analysis.basic_stats import get_basic_stats, get_categorical_stats
+from analysis.basic_stats import BasicStatistics
 from visualizations.basic_viz import plot_histogram, plot_boxplot, plot_bar
 
 def show(df):
     """기초 통계 페이지를 표시합니다."""
     st.title("📊 기초 통계 분석")
     
+    # BasicStatistics 객체 생성
+    stats_analyzer = BasicStatistics(df)
+    
     # 수치형 변수 통계
     st.header("수치형 변수 통계")
-    stats_df = get_basic_stats(df)
+    stats_df = stats_analyzer.get_basic_stats()
     st.dataframe(stats_df)
     
     # 범주형 변수 통계
-    categorical_stats = get_categorical_stats(df)
+    categorical_stats = stats_analyzer.get_categorical_stats()
     if not categorical_stats.empty:
         st.header("범주형 변수 통계")
         st.dataframe(categorical_stats)
     
+    # 나머지 코드는 그대로 유지
     # 변수별 통계 시각화
     st.header("변수별 통계 시각화")
     

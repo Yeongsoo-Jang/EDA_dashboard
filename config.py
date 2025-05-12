@@ -1,13 +1,29 @@
 # config.py - 데이터 분석 대시보드 설정 및 상수 정의
 
-# 오늘의집 브랜드 색상
-BRAND_COLORS = {
+# 개별 테마 색상 정의: 오늘의집 기본 팔레트
+OHNEUIJIP_DEFAULT_PALETTE = {
     'primary': '#3DBFAD',  # 민트색 (기본)
     'secondary': '#50E3C2', # 밝은 민트
     'tertiary': '#2C8D80',  # 진한 민트
     'accent': '#FF7E36',    # 오렌지 (강조색)
     'background': '#F7F8FA', # 배경
     'text': '#2F3438'       # 텍스트
+}
+
+# 애플리케이션에서 사용할 테마들을 정의합니다.
+# app.py 에서는 이 BRAND_COLORS 변수를 사용합니다.
+BRAND_COLORS = {
+    'default': OHNEUIJIP_DEFAULT_PALETTE,  # 기본 테마로 오늘의집 팔레트 사용
+    '오늘의집': OHNEUIJIP_DEFAULT_PALETTE, # 명시적으로 "오늘의집" 테마로도 접근 가능
+    # 향후 다른 테마 추가 예시 (주석 처리)
+    # 'dark_mode': {
+    #     'primary': '#77C9D4', # 어두운 테마용 기본색
+    #     'secondary': '#57A9B3',
+    #     'tertiary': '#3A8A9E',
+    #     'accent': '#FFA500', # 어두운 테마용 강조색
+    #     'background': '#1E1E1E', # 어두운 배경
+    #     'text': '#E0E0E0'       # 밝은 텍스트
+    # }
 }
 
 # 시각화 색상 테마

@@ -6,30 +6,35 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 from utils.data_loader import generate_sample_data # Assuming this is still needed for sample data
-from utils.insights import generate_today_house_insights, generate_kpi_insights, generate_data_quality_insights, generate_advanced_insights, generate_actionable_recommendations
+from utils.insights import *
+# generate_today_house_insights, generate_kpi_insights, generate_data_quality_insights, generate_advanced_insights, generate_actionable_recommendations
 from utils.data_processor import get_data_quality_report
-from config import BRAND_COLORS, BUSINESS_KPIS
+from config import BRAND_COLORS, BUSINESS_KPIS, COLORSCALES
 
 def show_welcome():    
+    # 현재 테마에 맞는 색상 팔레트 가져오기
+    current_theme_name = st.session_state.get("theme", "default")
+    colors = BRAND_COLORS.get(current_theme_name, BRAND_COLORS["default"])
+
     # 브랜드 색상 적용
     st.markdown(f"""
     <style>
     .main .block-container {{
-        background-color: {BRAND_COLORS['background']};
+        background-color: {colors['background']};
     }}
     h1, h2, h3, h4, h5, h6 {{
-        color: {BRAND_COLORS['text']};
+        color: {colors['text']};
     }}
     .stButton>button {{
-        background-color: {BRAND_COLORS['primary']};
+        background-color: {colors['primary']};
         color: white;
     }}
     .stButton>button:hover {{
-        background-color: {BRAND_COLORS['tertiary']};
+        background-color: {colors['tertiary']};
         color: white;
     }}
     .stProgress > div > div {{
-        background-color: {BRAND_COLORS['primary']};
+        background-color: {colors['primary']};
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -39,7 +44,7 @@ def show_welcome():
     
     with col1:
         st.markdown("""
-        ### 데이터 분석 대시보드에 오신 것을 환영합니다!
+        <h3 style="color: {colors['text']};">데이터 분석 대시보드에 오신 것을 환영합니다!</h3>
         
         이 대시보드는 비즈니스 데이터를 다양한 각도에서 분석하여
         실용적인 인사이트와 의사결정 지원을 제공합니다.
@@ -56,12 +61,12 @@ def show_welcome():
         **시작하려면 왼쪽 사이드바에서 CSV, JSON 또는 엑셀 파일을 업로드하거나
         아래에서 샘플 데이터를 선택하세요.**
         """)
-    
+
     with col2:
         # 오늘의집 로고/배너
         logo_html = f"""
         <div style="display: flex; justify-content: center; margin: 2rem 0;">
-            <div style="background-color: {BRAND_COLORS['primary']}; color: white; 
+            <div style="background-color: {colors['primary']}; color: white; 
                     padding: 1.5rem; border-radius: 10px; text-align: center; width: 100%;">
                 <div style="font-size: 2rem; font-weight: bold; margin-bottom: 0.5rem;">EDA</div>
                 <div style="font-size: 1.2rem;">데이터 분석 대시보드</div>
@@ -78,7 +83,7 @@ def show_welcome():
         """, unsafe_allow_html=True)
     
     # 샘플 데이터 옵션
-    st.markdown("### 샘플 데이터로 시작하기")
+    st.markdown(f"<h3 style='color: {colors['text']};'>샘플 데이터로 시작하기</h3>", unsafe_allow_html=True)
     
     # 샘플 데이터 카드 3개를 가로로 배치
     col1, col2, col3 = st.columns(3)
@@ -86,21 +91,25 @@ def show_welcome():
     with col1:
         st.markdown("""
         <div style="background-color: white; border-radius: 10px; padding: 1rem; height: 200px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-            <h4 style="color: #2F3438;">📊 판매 데이터</h4>
+            <h4 style="color: {colors['text']};">📊 판매 데이터</h4>
             <p style="font-size: 0.9rem; color: #333333;">판매 및 주문 데이터 분석용 샘플</p>
             <p style="font-size: 0.8rem; color: #666666;">2,000+ 주문, 500+ 사용자</p>
         </div>
         """, unsafe_allow_html=True)
         if st.button("판매 데이터 로드", key="sales_data"):
-            with st.spinner("샘플 데이터를 생성하는 중입니다..."):
-                st.session_state.sample_file = generate_sample_data()
-                st.success(f"{st.session_state.sample_file.name} 샘플 데이터가 로드되었습니다!")
-                st.rerun()
+            st.session_state.sample_file = generate_sample_data()
+            if st.session_state.sample_file:
+                st.session_state.current_df = st.session_state.sample_file[0]
+                st.session_state.current_filename = st.session_state.sample_file[1]
+                st.session_state.data_source_is_sample = True # Flag for app.py
+                st.experimental_rerun() # Rerun app.py to use the sample data
+
+            # st.success("오늘의집 샘플 데이터가 로드되었습니다! 사이드바에서 분석을 시작하세요.")
     
     with col2:
         st.markdown("""
         <div style="background-color: white; border-radius: 10px; padding: 1rem; height: 200px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-            <h4 style="color: #2F3438;">👥 고객 데이터</h4>
+            <h4 style="color: {colors['text']};">👥 고객 데이터</h4>
             <p>오늘의집 고객 세그먼트 및 행동 데이터 샘플</p>
             <p style="font-size: 0.8rem; color: gray;">500+ 고객, 다양한 세그먼트</p>
         </div>
@@ -113,7 +122,7 @@ def show_welcome():
     with col3:
         st.markdown("""
         <div style="background-color: white; border-radius: 10px; padding: 1rem; height: 200px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-            <h4 style="color: #2F3438;">🏷️ 상품 데이터</h4>
+            <h4 style="color: {colors['text']};">🏷️ 상품 데이터</h4>
             <p>오늘의집 상품 및 카테고리 데이터 샘플</p>
             <p style="font-size: 0.8rem; color: gray;">100+ 상품, 15+ 카테고리</p>
         </div>
@@ -124,14 +133,14 @@ def show_welcome():
                 st.warning("현재 상품 데이터 샘플은 준비 중입니다.")
     
     # 기능 소개 섹션
-    st.markdown("### 💫 주요 기능 소개")
+    st.markdown(f"<h3 style='color: {colors['text']};'>💫 주요 기능 소개</h3>", unsafe_allow_html=True)
     
     # 탭으로 기능 분류
     feature_tabs = st.tabs(["데이터 분석", "시각화", "머신러닝", "인사이트"])
     
     with feature_tabs[0]:
         st.markdown("""
-        #### 데이터 분석 기능
+        <h4 style="color: {colors['text']};">데이터 분석 기능</h4>
         
         - **기초 통계 분석**: 데이터의 기본 통계량 및 분포 확인
         - **변수별 상세 분석**: 각 변수의 특성과 영향력 분석
@@ -139,10 +148,10 @@ def show_welcome():
         - **시계열 트렌드 분석**: 시간에 따른 데이터 변화 패턴 분석
         - **세그먼트 분석**: 고객 및 제품 세그먼트별 특성 비교
         """)
-    
+
     with feature_tabs[1]:
         st.markdown("""
-        #### 시각화 기능
+        <h4 style="color: {colors['text']};">시각화 기능</h4>
         
         - **인터랙티브 차트**: 마우스 오버로 세부 정보 확인
         - **다차원 시각화**: 3D 산점도, 레이더 차트로 복잡한 관계 표현
@@ -150,10 +159,10 @@ def show_welcome():
         - **히트맵 & 상관관계 매트릭스**: 변수 간 관계 한눈에 파악
         - **시계열 차트**: 추세, 계절성, 이상치 시각화
         """)
-    
+
     with feature_tabs[2]:
         st.markdown("""
-        #### 머신러닝 기능
+        <h4 style="color: {colors['text']};">머신러닝 기능</h4>
         
         - **예측 모델링**: 회귀/분류 모델로 미래 예측
         - **고객 세분화**: 자동 군집화로 고객 그룹 발견
@@ -161,10 +170,10 @@ def show_welcome():
         - **상품 추천**: 사용자 행동 기반 개인화 추천
         - **이탈 예측**: 고객 이탈 가능성 분석 및 예방
         """)
-    
+
     with feature_tabs[3]:
         st.markdown("""
-        #### 인사이트 기능
+        <h4 style="color: {colors['text']};">인사이트 기능</h4>
         
         - **자동 KPI 추적**: 주요 비즈니스 지표 모니터링
         - **이상 감지**: 데이터 이상치 및 특이 패턴 발견
@@ -172,15 +181,15 @@ def show_welcome():
         - **실행 가능한 제안**: 데이터 기반 비즈니스 의사결정 지원
         - **보고서 생성**: 분석 결과를 PDF로 내보내기
         """)
-    
+
     # 푸터
     st.markdown("""
     <div style="margin-top: 3rem; text-align: center; color: gray; font-size: 0.8rem;">
         © 2025 오늘의집 데이터 분석팀 | 문의: data-team@ohouse.com
     </div>
     """, unsafe_allow_html=True)
-
-def create_kpi_card(title, value, previous_value=None, format_str="{:,.0f}", unit="", target=None, icon=None):
+    
+def create_kpi_card(title, value, colors, previous_value=None, format_str="{:,.0f}", unit="", target=None, icon=None):
     """향상된 KPI 카드를 생성합니다."""
     formatted_value = format_str.format(value) + unit
     
@@ -227,9 +236,9 @@ def create_kpi_card(title, value, previous_value=None, format_str="{:,.0f}", uni
     <div style="background-color: white; border-radius: 10px; padding: 1rem; box-shadow: 0 2px 5px rgba(0,0,0,0.1); height: 100%;">
         <div style="display: flex; align-items: center; margin-bottom: 8px;">
             <div style="font-size: 1.8rem; margin-right: 8px;">{icon}</div>
-            <h4 style="color: {BRAND_COLORS['text']}; margin: 0;">{title}</h4>
+            <h4 style="color: {colors['text']}; margin: 0;">{title}</h4>
         </div>
-        <div style="font-size: 1.8rem; font-weight: bold; color: {BRAND_COLORS['text']}; margin: 10px 0;">{formatted_value}</div>
+        <div style="font-size: 1.8rem; font-weight: bold; color: {colors['text']}; margin: 10px 0;">{formatted_value}</div>
         <div style="display: flex; justify-content: space-between; margin-top: 10px;">
             <span style="color: {change_color}; font-weight: bold;">{change_text}</span>
             <span style="color: {target_color}; font-size: 0.8rem;">{target_text}</span>
@@ -240,25 +249,29 @@ def create_kpi_card(title, value, previous_value=None, format_str="{:,.0f}", uni
 
 def show(df, filename):
     """데이터 로드 후 홈페이지를 표시합니다."""
+    # 현재 테마에 맞는 색상 팔레트 가져오기
+    current_theme_name = st.session_state.get("theme", "default")
+    colors = BRAND_COLORS.get(current_theme_name, BRAND_COLORS["default"])
+
     # 브랜드 색상 적용
     st.markdown(f"""
     <style>
     .main .block-container {{
-        background-color: {BRAND_COLORS['background']};
+        background-color: {colors['background']};
     }}
     h1, h2, h3, h4, h5, h6 {{
-        color: {BRAND_COLORS['text']};
+        color: {colors['text']};
     }}
     .stButton>button {{
-        background-color: {BRAND_COLORS['primary']};
+        background-color: {colors['primary']};
         color: white;
     }}
     .stButton>button:hover {{
-        background-color: {BRAND_COLORS['tertiary']};
+        background-color: {colors['tertiary']};
         color: white;
     }}
     .stProgress > div > div {{
-        background-color: {BRAND_COLORS['primary']};
+        background-color: {colors['primary']};
     }}
     /* 카드 호버 효과 */
     div[data-testid="stHorizontalBlock"] > div:hover {{
@@ -267,7 +280,7 @@ def show(df, filename):
     }}
     /* 탭 스타일링 */
     button[data-baseweb="tab"] {{
-        font-size: 1rem;
+        font-size: 1rem !important; /* Streamlit 기본 스타일 오버라이드를 위해 !important 추가 */
         font-weight: 600;
     }}
     button[data-baseweb="tab"][aria-selected="true"] {{
@@ -279,7 +292,7 @@ def show(df, filename):
     
     # 상단 헤더
     st.title(f"📊 오늘의집 데이터 분석")
-    st.markdown(f"<h4 style='margin-top: -10px; color: {BRAND_COLORS['text']}; opacity: 0.8;'>{filename} 분석 결과</h4>", 
+    st.markdown(f"<h4 style='margin-top: -10px; color: {colors['text']}; opacity: 0.8;'>{filename} 분석 결과</h4>", 
                unsafe_allow_html=True)
     
     # 이전 함수와 다음 컨텐츠 사이 간격 추가
@@ -411,8 +424,8 @@ def show(df, filename):
     with col1:
         # 데이터 요약
         st.markdown(f"""
-        <div style="background-color: white; border-radius: 10px; padding: 1rem; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-            <h4 style="margin-top: 0; margin-bottom: 10px; color: {BRAND_COLORS['text']};">📋 데이터 개요</h4>
+        <div style="background-color: white; border-radius: 10px; padding: 1rem; box-shadow: 0 2px 5px rgba(0,0,0,0.1); height: 150px;">
+            <h4 style="margin-top: 0; margin-bottom: 10px; color: {colors['text']};">📋 데이터 개요</h4>
             <p style="margin: 5px 0;"><strong>행:</strong> {len(filtered_df):,}</p>
             <p style="margin: 5px 0;"><strong>열:</strong> {len(filtered_df.columns):,}</p>
             <p style="margin: 5px 0;"><strong>{period_text}</strong></p>
@@ -422,8 +435,8 @@ def show(df, filename):
     with col2:
         # 데이터 품질 점수
         st.markdown(f"""
-        <div style="background-color: white; border-radius: 10px; padding: 1rem; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-            <h4 style="margin-top: 0; margin-bottom: 10px; color: {BRAND_COLORS['text']};">✅ 데이터 품질</h4>
+        <div style="background-color: white; border-radius: 10px; padding: 1rem; box-shadow: 0 2px 5px rgba(0,0,0,0.1); height: 150px;">
+            <h4 style="margin-top: 0; margin-bottom: 10px; color: {colors['text']};">✅ 데이터 품질</h4>
             <div style="display: flex; align-items: center; justify-content: space-between;">
                 <span style="font-size: 2rem; font-weight: bold; color: {quality_color};">{quality_grade}</span>
                 <span style="font-size: 1.5rem; font-weight: bold; color: {quality_color};">{quality_score:.1f}/100</span>
@@ -446,8 +459,8 @@ def show(df, filename):
         readiness_color = "#2C8D80" if readiness_score >= 80 else "#FF9F1C" if readiness_score >= 50 else "#FF6B6B"
         
         st.markdown(f"""
-        <div style="background-color: white; border-radius: 10px; padding: 1rem; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-            <h4 style="margin-top: 0; margin-bottom: 10px; color: {BRAND_COLORS['text']};">🔍 분석 준비도</h4>
+        <div style="background-color: white; border-radius: 10px; padding: 1rem; box-shadow: 0 2px 5px rgba(0,0,0,0.1); height: 150px;">
+            <h4 style="margin-top: 0; margin-bottom: 10px; color: {colors['text']};">🔍 분석 준비도</h4>
             <div style="display: flex; align-items: center; margin-bottom: 10px;">
                 <span style="font-size: 1.2rem; font-weight: bold; color: {readiness_color};">{readiness_text}</span>
                 <span style="margin-left: auto; font-weight: bold; color: {readiness_color};">{readiness_score:.0f}%</span>
@@ -464,24 +477,24 @@ def show(df, filename):
             date_range_days = (filtered_df[date_column].max() - filtered_df[date_column].min()).days
             
             st.markdown(f"""
-            <div style="background-color: white; border-radius: 10px; padding: 1rem; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-                <h4 style="margin-top: 0; margin-bottom: 10px; color: {BRAND_COLORS['text']};">📅 시간 범위</h4>
-                <div style="font-size: 1.5rem; font-weight: bold; color: {BRAND_COLORS['text']}; margin-bottom: 10px;">{date_range_days}일</div>
+            <div style="background-color: white; border-radius: 10px; padding: 1rem; box-shadow: 0 2px 5px rgba(0,0,0,0.1); height: 150px;">
+                <h4 style="margin-top: 0; margin-bottom: 10px; color: {colors['text']};">📅 시간 범위</h4>
+                <div style="font-size: 1.5rem; font-weight: bold; color: {colors['text']}; margin-bottom: 10px;">{date_range_days}일</div>
                 <p style="margin: 5px 0; font-size: 0.9rem;">시작: {filtered_df[date_column].min().strftime('%Y-%m-%d')}</p>
                 <p style="margin: 5px 0; font-size: 0.9rem;">종료: {filtered_df[date_column].max().strftime('%Y-%m-%d')}</p>
             </div>
             """, unsafe_allow_html=True)
         else:
             st.markdown(f"""
-            <div style="background-color: white; border-radius: 10px; padding: 1rem; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-                <h4 style="margin-top: 0; margin-bottom: 10px; color: {BRAND_COLORS['text']};">⚠️ 날짜 정보 없음</h4>
+            <div style="background-color: white; border-radius: 10px; padding: 1rem; box-shadow: 0 2px 5px rgba(0,0,0,0.1); height: 150px;">
+                <h4 style="margin-top: 0; margin-bottom: 10px; color: {colors['text']};">⚠️ 날짜 정보 없음</h4>
                 <p>시간 기반 분석을 위해 날짜 열이 필요합니다.</p>
                 <p style="font-size: 0.9rem;">시간 분석 기능이 제한됩니다.</p>
             </div>
             """, unsafe_allow_html=True)
     
     # KPI 섹션 - 주요 비즈니스 지표
-    st.subheader("💼 주요 비즈니스 지표")
+    st.subheader(f"💼 주요 비즈니스 지표")
     
     # KPI 계산
     try:
@@ -539,6 +552,7 @@ def show(df, filename):
                     current_revenue, 
                     previous_revenue, 
                     format_str="{:,.0f}", 
+                    colors=colors,
                     unit="원",
                     target=target_revenue,
                     icon="💰"
@@ -550,6 +564,7 @@ def show(df, filename):
                     current_orders, 
                     previous_orders, 
                     format_str="{:,d}", 
+                    colors=colors,
                     unit="건",
                     icon="📦"
                 ), unsafe_allow_html=True)
@@ -560,6 +575,7 @@ def show(df, filename):
                     current_aov, 
                     previous_aov, 
                     format_str="{:,.0f}", 
+                    colors=colors,
                     unit="원",
                     target=target_aov,
                     icon="💎"
@@ -571,7 +587,8 @@ def show(df, filename):
                     current_customers, 
                     previous_customers, 
                     format_str="{:,d}", 
-                    unit="명"
+                    unit="명",
+                    colors=colors
                 ), unsafe_allow_html=True)
         else:
             st.info("주요 비즈니스 지표를 계산하는 데 필요한 열이 없습니다.")
@@ -599,7 +616,7 @@ def show(df, filename):
         st.dataframe(dtypes_df)
     
     # 주요 트렌드 차트 - 2개의 컬럼으로 구성
-    st.subheader("📈 주요 트렌드")
+    st.subheader(f"📈 주요 트렌드")
     
     try:
         if date_column:
@@ -637,8 +654,7 @@ def show(df, filename):
                         y='total_price',
                         labels={'time_str': '기간', 'total_price': '매출액'},
                         title=f"{trend_type} 매출 트렌드",
-                        markers=True,
-                        color_discrete_sequence=[BRAND_COLORS['primary']]
+                        markers=True
                     )
                     
                     fig.update_layout(
@@ -646,7 +662,8 @@ def show(df, filename):
                         yaxis_title="매출액 (원)",
                         hovermode="x unified",
                         plot_bgcolor='white'
-                    )
+                    )                    
+                    fig.update_traces(line=dict(color=colors['primary']))
                     
                     st.plotly_chart(fig, use_container_width=True)
                 else:
@@ -667,7 +684,7 @@ def show(df, filename):
                         values=top_categories.values,
                         names=top_categories.index,
                         title="카테고리별 매출 비중",
-                        color_discrete_sequence=BRAND_COLORS['categorical']
+                        color_discrete_sequence=COLORSCALES['categorical']
                     )
                     
                     fig.update_traces(
@@ -689,7 +706,7 @@ def show(df, filename):
         st.error(f"트렌드 차트 생성 중 오류가 발생했습니다: {str(e)}")
     
     # 고객 세그먼트 및 행동 분석
-    st.subheader("👥 고객 세그먼트 및 행동 분석")
+    st.subheader(f"👥 고객 세그먼트 및 행동 분석")
     
     try:
         col1, col2 = st.columns(2)
@@ -705,7 +722,7 @@ def show(df, filename):
                     title="고객 세그먼트 분포",
                     labels={'x': '세그먼트', 'y': '고객 수'},
                     color=segment_counts.index,
-                    color_discrete_sequence=BRAND_COLORS['categorical']
+                    color_discrete_sequence=COLORSCALES['categorical']
                 )
                 
                 fig.update_layout(
@@ -725,7 +742,7 @@ def show(df, filename):
                     y=order_frequency.values,
                     title="고객별 주문 빈도 분포",
                     labels={'x': '주문 횟수', 'y': '고객 수'},
-                    color_discrete_sequence=[BRAND_COLORS['primary']]
+                    color_discrete_sequence=[colors['primary']]
                 )
                 
                 fig.update_layout(
@@ -748,7 +765,7 @@ def show(df, filename):
                     values=payment_counts.values,
                     names=payment_counts.index,
                     title="결제 방법 분포",
-                    color_discrete_sequence=BRAND_COLORS['categorical']
+                    color_discrete_sequence=COLORSCALES['categorical']
                 )
                 
                 fig.update_traces(
@@ -765,7 +782,7 @@ def show(df, filename):
                     values=delivery_counts.values,
                     names=delivery_counts.index,
                     title="배송 유형 분포",
-                    color_discrete_sequence=BRAND_COLORS['categorical']
+                    color_discrete_sequence=COLORSCALES['categorical']
                 )
                 
                 fig.update_traces(
@@ -789,7 +806,7 @@ def show(df, filename):
                     values=top_regions.values,
                     names=top_regions.index,
                     title="지역별 주문 분포",
-                    color_discrete_sequence=BRAND_COLORS['categorical']
+                    color_discrete_sequence=COLORSCALES['categorical']
                 )
                 
                 fig.update_traces(
@@ -805,7 +822,7 @@ def show(df, filename):
         st.error(f"고객 분석 차트 생성 중 오류가 발생했습니다: {str(e)}")
     
     # 인사이트 섹션
-    st.subheader("💡 주요 인사이트")
+    st.subheader(f"💡 주요 인사이트")
     
     try:
         # 오늘의집 데이터 인사이트 생성
@@ -866,7 +883,7 @@ def show(df, filename):
         st.error(f"인사이트 생성 중 오류가 발생했습니다: {str(e)}")
     
     # 추천 분석 섹션
-    st.subheader("🔍 권장 분석")
+    st.subheader(f"🔍 권장 분석")
     
     recommended_analysis = [
         {
@@ -907,12 +924,12 @@ def show(df, filename):
         with cols[i % 3]:
             st.markdown(f"""
             <div style="background-color: white; border-radius: 10px; padding: 1rem; 
-                    box-shadow: 0 2px 5px rgba(0,0,0,0.1); height: 180px; margin-bottom: 1rem;">
-                <h4 style="color: {BRAND_COLORS['text']}; margin-top: 0;">{analysis['title']}</h4>
-                <p style="color: {BRAND_COLORS['text']}; font-size: 0.9rem; height: 60px;">{analysis['description']}</p>
+                    box-shadow: 0 2px 5px rgba(0,0,0,0.1); height: 200px; margin-bottom: 1rem; display: flex; flex-direction: column; justify-content: space-between;">
+                <div><h4 style="color: {colors['text']}; margin-top: 0;">{analysis['title']}</h4>
+                <p style="color: {colors['text']}; font-size: 0.9rem; height: 60px;">{analysis['description']}</p></div>
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div style="color: #555555; font-size: 0.8rem;">페이지: {analysis['page']}</div>
-                    <div style="color: #555555; font-size: 0.8rem;">변수: {analysis['variables']}</div>
+                    <div style="color: {colors['text']}; opacity: 0.7; font-size: 0.8rem;">페이지: {analysis['page']}</div>
+                    <div style="color: {colors['text']}; opacity: 0.7; font-size: 0.8rem;">변수: {analysis['variables']}</div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
